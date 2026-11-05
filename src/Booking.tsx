@@ -4,7 +4,7 @@ import { Icon } from './Icon'
 import { useMessages } from './messages'
 import { NearbySection, PlanSheet, PlansSection, type Plan, type PlanKind } from './Plans'
 import {
-  FLIGHT_THRESHOLD_MILES, HOME, PASSENGER, cheapestOption, driveMinutes, formatClock, formatDuration, leaveBy, needsFlight, qrCells, scheduleUrl, sortedOptions,
+  FLIGHT_THRESHOLD_MILES, HOME, PASSENGER, cheapestOption, driveMinutes, formatClock, formatDuration, needsFlight, qrCells, scheduleUrl, sortedOptions,
   type Flight, type Trip,
 } from './trips'
 

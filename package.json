@@ -2,21 +2,34 @@
   "name": "fitapp",
   "version": "0.1.0",
   "private": true,
+  "main": "expo/AppEntry",
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^13.5.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
+    "expo": "~58.0.23",
+    "expo-image-picker": "~58.0.10",
+    "expo-status-bar": "~58.0.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-web": "^0.21.4",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "web:build": "expo export --platform web",
+    "legacy:web": "react-scripts start",
+    "legacy:web:build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false",
+    "typecheck": "tsc --noEmit"
   },
   "eslintConfig": {
     "extends": [
@@ -35,5 +48,11 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "~6.0.3"
   }
 }

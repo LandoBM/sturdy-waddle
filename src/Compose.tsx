@@ -74,7 +74,7 @@ export function ComposeSheet({ joined, submit, close }: ComposeSheetProps) {
 
           {image && (
             <div className="compose-preview">
-              <img src={image} alt="Selected photo preview" />
+              <img src={image} alt="Selected preview" />
               <button type="button" onClick={() => setImage(undefined)} aria-label="Remove photo"><Icon name="close" size={16} /></button>
             </div>
           )}
