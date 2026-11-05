@@ -1,0 +1,194 @@
+import { useState } from 'react'
+import { BookingPage, EventSheet } from './Booking'
+import { ClubDetail, ClubsScreen } from './ClubsScreen'
+import { CommentsSheet } from './Comments'
+import { ComposeSheet, type PostDraft } from './Compose'
+import { ExploreScreen } from './ExploreScreen'
+import { FeedScreen } from './FeedScreen'
+import { Icon } from './Icon'
+import { MessagesProvider } from './messages'
+import { NotificationsProvider, useNotifications } from './notifications'
+import type { Plan } from './Plans'
+import { ProfileScreen } from './ProfileScreen'
+import { ScheduleScreen } from './ScheduleScreen'
+import { people, type Tab } from './data'
+import { ME, seedPosts, type Post } from './posts'
+import { tripById, type Trip } from './trips'
+
+interface NavItem {
+  id: Tab
+  label: string
+}
+
+const nav: NavItem[] = [
+  { id: 'home', label: 'Clubs' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'feed', label: 'Feed' },
+  { id: 'search', label: 'Explore' },
+  { id: 'profile', label: 'Me' },
+]
+
+const cheers = ['Love this!', 'Count me in next time.', 'Great energy, see you out there.', 'Yes! This is the vibe.']
+
+function PhoneContent() {
+  const { push } = useNotifications()
+  const [tab, setTab] = useState<Tab>('home')
+  const [sheetTrip, setSheetTrip] = useState<string | null>(null)
+  const [bookingTrip, setBookingTrip] = useState<string | null>(null)
+  const [reserved, setReserved] = useState<string[]>(['t3', 't6'])
+  const [scheduleIds, setScheduleIds] = useState<string[]>(['t1', 't3', 't4', 't6'])
+  const [joined, setJoined] = useState<string[]>(['club-0'])
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [clubOpen, setClubOpen] = useState<string | null>(null)
+  const [posts, setPosts] = useState<Post[]>(seedPosts)
+  const [composing, setComposing] = useState(false)
+  const [commentsPost, setCommentsPost] = useState<string | null>(null)
+
+  const toggleJoin = (id: string) =>
+    setJoined((list) => (list.includes(id) ? list.filter((i) => i !== id) : [...list, id]))
+
+  const addToSchedule = (trip: Trip) => setScheduleIds((l) => (l.includes(trip.id) ? l : [...l, trip.id]))
+  const removeFromSchedule = (id: string) => {
+    setScheduleIds((l) => l.filter((i) => i !== id))
+    setReserved((l) => l.filter((i) => i !== id))
+  }
+  const toggleSchedule = (trip: Trip) => (scheduleIds.includes(trip.id) ? removeFromSchedule(trip.id) : addToSchedule(trip))
+
+  const patchPost = (id: string, patch: (p: Post) => Partial<Post>) =>
+    setPosts((l) => l.map((p) => (p.id === id ? { ...p, ...patch(p) } : p)))
+  const toggleLike = (id: string) => patchPost(id, (p) => ({ liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) }))
+  const toggleSave = (id: string) => patchPost(id, (p) => ({ saved: !p.saved }))
+
+  const addComment = (postId: string, text: string) =>
+    patchPost(postId, (p) => ({ comments: [...p.comments, { id: `cm-${Date.now()}`, author: ME.name, mine: true, text, time: 'Just now', likes: 0, liked: false }] }))
+  const toggleCommentLike = (postId: string, commentId: string) =>
+    patchPost(postId, (p) => ({
+      comments: p.comments.map((cm) => (cm.id === commentId ? { ...cm, liked: !cm.liked } : cm)),
+    }))
+
+  const submitPost = (draft: PostDraft) => {
+    const id = `mine-${Date.now()}`
+    setPosts((l) => [{ id, author: ME.name, handle: ME.handle, mine: true, ...draft, time: 'Just now', likes: 0, comments: [], liked: false, saved: false }, ...l])
+    setComposing(false)
+    setTab('feed')
+    setClubOpen(null)
+    setBookingTrip(null)
+
+    // Demo only: simulate other people reacting so notifications have something to show.
+    const fans = [...people].sort(() => Math.random() - 0.5)
+    const snippet = draft.text ? `“${draft.text.slice(0, 60)}${draft.text.length > 60 ? '…' : ''}”` : 'Your photo'
+    window.setTimeout(() => {
+      const extra = 4 + Math.floor(Math.random() * 9)
+      patchPost(id, (p) => ({ likes: p.likes + 2 + extra }))
+      push({ kind: 'like', people: [fans[0].name, fans[1].name], title: `${fans[0].name}, ${fans[1].name} and ${extra} others liked your post`, body: snippet })
+    }, 4000)
+    window.setTimeout(() => {
+      const text = cheers[Math.floor(Math.random() * cheers.length)]
+      patchPost(id, (p) => ({ comments: [...p.comments, { id: `cm-${Date.now()}`, author: fans[2].name, mine: false, text, time: 'Just now', likes: 0, liked: false }] }))
+      push({ kind: 'comment', people: [fans[2].name], title: `${fans[2].name} commented on your post`, body: `“${text}”` })
+    }, 9000)
+  }
+
+  const goTo = (next: Tab) => {
+    setClubOpen(null)
+    setBookingTrip(null)
+    setTab(next)
+  }
+
+  const openCompose = () => setComposing(true)
+
+  return (
+    <>
+      <div className="status-bar"><span>9:41</span><div className="island" /><div className="status-icons"><i /><i /><b /></div></div>
+      <div className="viewport">
+        {tab === 'home' && <ClubsScreen joined={joined} openClub={setClubOpen} />}
+        {tab === 'schedule' && <ScheduleScreen items={scheduleIds.map((id) => tripById(id)).filter(Boolean)} joined={joined} reserved={reserved} openTrip={setSheetTrip} addTrip={addToSchedule} />}
+        {tab === 'feed' && <FeedScreen posts={posts} toggleLike={toggleLike} toggleSave={toggleSave} compose={openCompose} openComments={setCommentsPost} />}
+        {tab === 'search' && <ExploreScreen joined={joined} toggleJoin={toggleJoin} openClub={setClubOpen} />}
+        {tab === 'profile' && <ProfileScreen myPosts={posts.filter((p) => p.mine)} compose={openCompose} />}
+      </div>
+      {bookingTrip && (
+        <BookingPage
+          key={bookingTrip}
+          trip={tripById(bookingTrip)}
+          plans={plans.filter((p) => p.tripId === bookingTrip)}
+          addPlan={(p) => setPlans((l) => [...l, p])}
+          removePlan={(id) => setPlans((l) => l.filter((p) => p.id !== id))}
+          back={() => setBookingTrip(null)}
+          cancel={() => {
+            setReserved((l) => l.filter((i) => i !== bookingTrip))
+            setBookingTrip(null)
+          }}
+          openClub={() => {
+            setClubOpen(tripById(bookingTrip).clubId)
+            setBookingTrip(null)
+          }}
+        />
+      )}
+      {clubOpen && (
+        <ClubDetail
+          key={clubOpen}
+          clubId={clubOpen}
+          joined={joined.includes(clubOpen)}
+          toggleJoin={() => toggleJoin(clubOpen)}
+          scheduledIds={scheduleIds}
+          toggleSchedule={toggleSchedule}
+          close={() => setClubOpen(null)}
+        />
+      )}
+      <nav className="bottom-nav">
+        {nav.map((item) => (
+          <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => goTo(item.id)}>
+            <span><Icon name={item.id} filled={tab === item.id && item.id === 'feed'} /></span>
+            <small>{item.label}</small>
+          </button>
+        ))}
+      </nav>
+      {sheetTrip && (
+        <EventSheet
+          trip={tripById(sheetTrip)}
+          reserved={reserved.includes(sheetTrip)}
+          toggleReserve={() =>
+            setReserved((l) => (l.includes(sheetTrip) ? l.filter((i) => i !== sheetTrip) : [...l, sheetTrip]))
+          }
+          viewBooking={() => {
+            setBookingTrip(sheetTrip)
+            setSheetTrip(null)
+          }}
+          removeFromSchedule={() => {
+            removeFromSchedule(sheetTrip)
+            setSheetTrip(null)
+          }}
+          close={() => setSheetTrip(null)}
+        />
+      )}
+      {commentsPost && posts.some((p) => p.id === commentsPost) && (
+        <CommentsSheet
+          post={posts.find((p) => p.id === commentsPost)!}
+          add={(text) => addComment(commentsPost, text)}
+          toggleLike={(cid) => toggleCommentLike(commentsPost, cid)}
+          close={() => setCommentsPost(null)}
+        />
+      )}
+      {composing && <ComposeSheet joined={joined} submit={submitPost} close={() => setComposing(false)} />}
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <main className="app-shell">
+      <div className="desktop-note">
+        <div className="brand-symbol"><span /><span /></div>
+        <p>Outside is better<br /><strong>together.</strong></p>
+      </div>
+      <div className="phone">
+        <MessagesProvider>
+          <NotificationsProvider>
+            <PhoneContent />
+          </NotificationsProvider>
+        </MessagesProvider>
+      </div>
+    </main>
+  )
+}
