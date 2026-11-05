@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { StatusBar } from 'expo-status-bar'
-import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   Alert,
   Image,
@@ -19,8 +19,19 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { areas, clubById, clubs, distanceFor, media, type Category, type Club } from '../src/data'
 import { ME, seedPosts, type Post } from '../src/posts'
 import { tripById, trips, type Trip } from '../src/trips'
+import { ActivityScreen } from './ActivityScreen'
+import {
+  beginActivity,
+  finishActivity,
+  getActivityStore,
+  pauseActivity,
+  resumeActivity,
+  type ActivityKind,
+  type ActivityStore,
+} from './activity'
+import { loadHealthProvider, loadImportedWorkouts, saveHealthProvider, syncHealthWorkouts, type ImportedWorkout } from './health'
 
-type Tab = 'home' | 'schedule' | 'feed' | 'explore' | 'profile'
+type Tab = 'home' | 'schedule' | 'activity' | 'feed' | 'explore' | 'profile'
 type IconName = ComponentProps<typeof Ionicons>['name']
 
 const colors = {
@@ -37,6 +48,7 @@ const colors = {
 const tabs: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'home', label: 'Clubs', icon: 'people-outline' },
   { id: 'schedule', label: 'Schedule', icon: 'calendar-outline' },
+  { id: 'activity', label: 'Track', icon: 'navigate-outline' },
   { id: 'feed', label: 'Feed', icon: 'heart-outline' },
   { id: 'explore', label: 'Explore', icon: 'compass-outline' },
   { id: 'profile', label: 'Me', icon: 'person-outline' },
@@ -206,6 +218,36 @@ export default function NativeApp() {
   const [draftLocation, setDraftLocation] = useState('')
   const [draftImage, setDraftImage] = useState<string | undefined>()
   const [commentText, setCommentText] = useState('')
+  const [activityStore, setActivityStore] = useState<ActivityStore>({ active: null, history: [], points: 0 })
+  const [clock, setClock] = useState(Date.now())
+  const [importedWorkouts, setImportedWorkouts] = useState<ImportedWorkout[]>([])
+  const [healthProvider, setHealthProvider] = useState<string | null>(null)
+  const [syncingHealth, setSyncingHealth] = useState(false)
+
+  useEffect(() => {
+    Promise.all([getActivityStore(), loadImportedWorkouts(), loadHealthProvider()])
+      .then(([savedActivities, savedWorkouts, savedProvider]) => {
+        setActivityStore(savedActivities)
+        setImportedWorkouts(savedWorkouts)
+        setHealthProvider(savedProvider)
+      })
+      .catch((error: unknown) => {
+        Alert.alert('Unable to load activity data', error instanceof Error ? error.message : 'Please restart the app and try again.')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!activityStore.active) return
+    const timer = setInterval(() => {
+      setClock(Date.now())
+      getActivityStore()
+        .then(setActivityStore)
+        .catch((error: unknown) => {
+          Alert.alert('Activity update failed', error instanceof Error ? error.message : 'The activity could not be refreshed.')
+        })
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [activityStore.active?.id])
 
   const areaZip = areas[zip] ? zip : Object.keys(areas).sort(
     (a, b) => Math.abs(Number(a) - Number(zip)) - Math.abs(Number(b) - Number(zip)),
@@ -222,6 +264,52 @@ export default function NativeApp() {
   const commentsPost = posts.find((post) => post.id === commentsPostId) ?? null
   const savedPosts = posts.filter((post) => post.saved)
   const myPosts = posts.filter((post) => post.mine)
+  const activeDuration = activityStore.active
+    ? activityStore.active.elapsedSeconds + (
+      activityStore.active.status === 'recording'
+        ? Math.max(0, Math.floor((clock - (activityStore.active.segmentStartedAt ?? clock)) / 1000))
+        : 0
+    )
+    : 0
+
+  const runActivityAction = async (action: () => Promise<unknown>, successMessage?: string) => {
+    try {
+      const completed = await action()
+      setActivityStore(await getActivityStore())
+      if (completed && typeof completed === 'object' && 'earnedPoints' in completed) {
+        Alert.alert('Activity complete!', `You earned ${(completed as { earnedPoints: number }).earnedPoints} points. Great work!`)
+      } else if (successMessage) {
+        Alert.alert('Activity tracker', successMessage)
+      }
+    } catch (error) {
+      Alert.alert('Activity tracker', error instanceof Error ? error.message : 'The activity could not be updated.')
+    }
+  }
+
+  const connectHealthProvider = async () => {
+    setSyncingHealth(true)
+    try {
+      const workouts = await syncHealthWorkouts()
+      const provider = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect'
+      setImportedWorkouts(workouts)
+      setHealthProvider(provider)
+      await saveHealthProvider(provider)
+      Alert.alert('Fitness data connected', `Imported ${workouts.length} recent workout${workouts.length === 1 ? '' : 's'} from ${provider}.`)
+    } catch (error) {
+      Alert.alert('Could not connect fitness data', error instanceof Error ? error.message : 'Please try again.')
+    } finally {
+      setSyncingHealth(false)
+    }
+  }
+
+  const disconnectHealthProvider = async () => {
+    try {
+      await saveHealthProvider(null)
+      setHealthProvider(null)
+    } catch (error) {
+      Alert.alert('Could not disconnect', error instanceof Error ? error.message : 'Please try again.')
+    }
+  }
 
   const toggleJoin = (id: string) => {
     setJoined((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
@@ -347,6 +435,55 @@ export default function NativeApp() {
         <Text style={styles.highlightTitle}>{scheduleTrips[0]?.title ?? 'Make a plan outdoors'}</Text>
         <Text style={styles.highlightBody}>{scheduleTrips[0] ? `${scheduleTrips[0].shortDay}, ${scheduleTrips[0].shortDate} · ${scheduleTrips[0].time}` : 'Explore clubs and add an event to your schedule.'}</Text>
       </View>
+      <View style={styles.scheduleTrackerCard}>
+        <View style={styles.scheduleTrackerHeader}>
+          <View style={styles.scheduleTrackerIcon}><AppIcon name="fitness-outline" size={20} /></View>
+          <View style={styles.scheduleTrackerCopy}>
+            <Text style={styles.scheduleTrackerTitle}>Activity tracker</Text>
+            <Text style={styles.scheduleTrackerSub}>Record a hike or run, or import workouts from your health app.</Text>
+          </View>
+        </View>
+        <Pressable style={styles.scheduleTrackButton} onPress={() => setTab('activity')}>
+          <Text style={styles.scheduleTrackText}>{activityStore.active ? 'Resume your activity' : 'Open activity tracker'}</Text>
+          <AppIcon name="arrow-forward" size={16} />
+        </Pressable>
+        <View style={styles.healthDivider} />
+        <View style={styles.healthConnectRow}>
+          <View style={styles.healthConnectCopy}>
+            <Text style={styles.healthConnectTitle}>{Platform.OS === 'ios' ? 'Apple Health' : Platform.OS === 'android' ? 'Health Connect' : 'Fitness app sync'}</Text>
+            <Text style={styles.healthConnectSub}>
+              {healthProvider ? `${healthProvider} · ${importedWorkouts.length} workouts synced` : 'Import workouts, distance, calories, and heart rate.'}
+            </Text>
+          </View>
+          {healthProvider ? (
+            <Pressable onPress={connectHealthProvider} disabled={syncingHealth} style={styles.healthConnectButton}>
+              <Text style={styles.healthConnectButtonText}>{syncingHealth ? 'Syncing…' : 'Sync'}</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={connectHealthProvider} disabled={syncingHealth || Platform.OS === 'web'} style={[styles.healthConnectButton, (syncingHealth || Platform.OS === 'web') && styles.disabledAction]}>
+              <Text style={styles.healthConnectButtonText}>{syncingHealth ? 'Connecting…' : 'Connect'}</Text>
+            </Pressable>
+          )}
+        </View>
+        {!!healthProvider && <Pressable onPress={disconnectHealthProvider} style={styles.disconnectButton}><Text style={styles.disconnectText}>Disconnect sync</Text></Pressable>}
+        {Platform.OS === 'web' && <Text style={styles.webHealthNote}>Fitness app connections require the iOS or Android app.</Text>}
+        <Text style={styles.healthPrivacyNote}>Only completed workout summaries are imported. Manage source apps and permissions in {Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect'}.</Text>
+      </View>
+      {!!importedWorkouts.length && (
+        <>
+          <SectionTitle title="Synced workouts" />
+          {importedWorkouts.slice(0, 3).map((workout) => (
+            <View key={workout.id} style={styles.syncedWorkoutRow}>
+              <View style={styles.syncedWorkoutIcon}><AppIcon name="fitness" size={17} /></View>
+              <View style={styles.syncedWorkoutCopy}>
+                <Text style={styles.syncedWorkoutTitle} numberOfLines={1}>{workout.title}</Text>
+                <Text style={styles.syncedWorkoutSub}>{workout.source} · {new Date(workout.startedAt).toLocaleDateString()}</Text>
+              </View>
+              <Text style={styles.syncedWorkoutDistance}>{workout.distanceMeters ? `${(workout.distanceMeters / 1609.344).toFixed(1)} mi` : `${Math.round(workout.durationSeconds / 60)} min`}</Text>
+            </View>
+          ))}
+        </>
+      )}
       <SectionTitle title="Upcoming events" action="Explore" onPress={() => setTab('explore')} />
       {scheduleTrips.map((trip) => <TripCard key={trip.id} trip={trip} reserved={reserved.includes(trip.id)} onPress={() => setSelectedTrip(trip)} />)}
       <SectionTitle title="Discover events" />
@@ -440,6 +577,16 @@ export default function NativeApp() {
       <View style={styles.appBody}>
         {tab === 'home' && renderHome()}
         {tab === 'schedule' && renderSchedule()}
+        {tab === 'activity' && (
+          <ActivityScreen
+            store={activityStore}
+            elapsedSeconds={activeDuration}
+            onStart={(kind: ActivityKind) => { void runActivityAction(() => beginActivity(kind)) }}
+            onPause={() => { void runActivityAction(pauseActivity) }}
+            onResume={() => { void runActivityAction(resumeActivity) }}
+            onFinish={() => { void runActivityAction(finishActivity) }}
+          />
+        )}
         {tab === 'feed' && renderFeed()}
         {tab === 'explore' && renderExplore()}
         {tab === 'profile' && renderProfile()}
@@ -635,6 +782,32 @@ const styles = StyleSheet.create({
   highlightEyebrow: { color: colors.lime, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   highlightTitle: { color: colors.white, fontSize: 22, lineHeight: 27, fontWeight: '800', marginTop: 9 },
   highlightBody: { color: '#e2e5dc', fontSize: 12, lineHeight: 18, marginTop: 7 },
+  scheduleTrackerCard: { backgroundColor: '#f0f2e9', borderRadius: 19, padding: 13, marginBottom: 17, borderWidth: 1, borderColor: colors.line },
+  scheduleTrackerHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  scheduleTrackerIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' },
+  scheduleTrackerCopy: { flex: 1 },
+  scheduleTrackerTitle: { color: colors.ink, fontSize: 13, fontWeight: '800' },
+  scheduleTrackerSub: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  scheduleTrackButton: { backgroundColor: colors.white, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 11 },
+  scheduleTrackText: { color: colors.ink, fontSize: 11, fontWeight: '800' },
+  healthDivider: { height: 1, backgroundColor: colors.line, marginVertical: 12 },
+  healthConnectRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  healthConnectCopy: { flex: 1 },
+  healthConnectTitle: { color: colors.ink, fontSize: 11, fontWeight: '800' },
+  healthConnectSub: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 3 },
+  healthConnectButton: { backgroundColor: colors.ink, borderRadius: 17, paddingHorizontal: 13, paddingVertical: 8 },
+  healthConnectButtonText: { color: colors.white, fontSize: 10, fontWeight: '800' },
+  disabledAction: { opacity: 0.45 },
+  disconnectButton: { alignSelf: 'flex-start', paddingTop: 9 },
+  disconnectText: { color: colors.muted, fontSize: 9, textDecorationLine: 'underline' },
+  webHealthNote: { color: '#98631a', fontSize: 9, lineHeight: 14, marginTop: 8 },
+  healthPrivacyNote: { color: colors.muted, fontSize: 9, lineHeight: 13, marginTop: 8 },
+  syncedWorkoutRow: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 10, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, marginBottom: 8 },
+  syncedWorkoutIcon: { width: 33, height: 33, borderRadius: 11, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' },
+  syncedWorkoutCopy: { flex: 1 },
+  syncedWorkoutTitle: { color: colors.ink, fontSize: 10, fontWeight: '800' },
+  syncedWorkoutSub: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  syncedWorkoutDistance: { color: colors.ink, fontSize: 10, fontWeight: '800' },
   tripCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 19, padding: 10, marginBottom: 10 },
   tripImage: { width: 68, height: 76, borderRadius: 13, backgroundColor: '#d7dbcf' },
   tripInfo: { flex: 1 },

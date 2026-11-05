@@ -1,4 +1,5 @@
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import './native/activity'
 import NativeApp from './native/App'
 
 export default function App() {
