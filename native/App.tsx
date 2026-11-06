@@ -1804,11 +1804,9 @@ export default function NativeApp() {
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <KeyboardAvoidingView style={styles.composer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.sheetHeader}>
-              <Pressable onPress={closeComposer}><Text style={styles.cancelText}>Cancel</Text></Pressable>
+              <View style={{ width: 52 }} />
               <Text style={styles.sheetTitle}>New post</Text>
-              <Pressable onPress={submitPost} disabled={!draftText.trim() && !draftImage} style={[styles.postButton, !draftText.trim() && !draftImage && styles.disabledButton]}>
-                <Text style={styles.postButtonText}>Post</Text>
-              </Pressable>
+              <View style={{ width: 52 }} />
             </View>
             <View style={styles.composeAuthor}>
               <Avatar name={accountUsername} size={42} photoUri={profileAvatarUrl} />
@@ -1841,6 +1839,14 @@ export default function NativeApp() {
               <AppIcon name="image-outline" color={colors.blue} />
               <Text style={styles.addPhotoText}>{draftImage ? 'Change photo' : 'Add photo'}</Text>
             </Pressable>
+            <View className="mt-auto flex-row gap-3 border-t border-[#dfe7d9] bg-[#f4f7f1] p-4 dark:border-[#2b3a2d] dark:bg-[#10130f]">
+              <Pressable onPress={closeComposer} className="h-12 flex-1 items-center justify-center rounded-full border border-[#cbd8c5] bg-white dark:border-[#46552d] dark:bg-[#18221a]" accessibilityLabel="Cancel new post">
+                <Text className="text-sm font-extrabold text-ink dark:text-slate-100">Cancel</Text>
+              </Pressable>
+              <Pressable onPress={submitPost} disabled={!draftText.trim() && !draftImage} className={`h-12 flex-1 items-center justify-center rounded-full bg-accent-200 ${!draftText.trim() && !draftImage ? 'opacity-50' : ''}`} accessibilityLabel="Publish post">
+                <Text className="text-sm font-extrabold text-ink">Post</Text>
+              </Pressable>
+            </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
