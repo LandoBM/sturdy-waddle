@@ -57,6 +57,19 @@ import type { Session } from '@supabase/supabase-js'
 type Tab = 'home' | 'schedule' | 'activity' | 'feed' | 'explore' | 'profile' | 'owner'
 type IconName = ComponentProps<typeof Ionicons>['name']
 type OwnerStatus = 'none' | 'pending' | 'verified'
+type ClubBadge = { type: 'icon' | 'image'; value: string }
+
+const badgeOptions: IconName[] = ['leaf-outline', 'flame-outline', 'water-outline', 'trail-sign-outline', 'sunny-outline']
+
+function ClubBadgeView({ badge, size = 58 }: { badge: ClubBadge; size?: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2 }} className="items-center justify-center overflow-hidden border-2 border-white bg-accent-200 shadow-md dark:border-[#18221a]">
+      {badge.type === 'image'
+        ? <Image source={{ uri: badge.value }} style={{ width: size, height: size }} />
+        : <Ionicons name={badge.value as IconName} size={Math.round(size * 0.43)} color={colors.ink} />}
+    </View>
+  )
+}
 const clubCountries = [
   { code: 'US', label: 'United States' },
   { code: 'CA', label: 'Canada' },
@@ -358,6 +371,7 @@ export default function NativeApp() {
   const [posts, setPosts] = useState<Post[]>(seedPosts)
   const [selectedClub, setSelectedClub] = useState<Club | null>(null)
   const [selectedManagedClub, setSelectedManagedClub] = useState<ManagedClub | null>(null)
+  const [clubBadges, setClubBadges] = useState<Record<string, ClubBadge>>({})
   const [managedClubs, setManagedClubs] = useState<ManagedClub[]>([])
   const [managedMemberships, setManagedMemberships] = useState<Record<string, string>>({})
   const [managedClubUpdates, setManagedClubUpdates] = useState<string[]>([])
@@ -1033,6 +1047,25 @@ export default function NativeApp() {
     }
   }
 
+  const badgeForClub = (clubId: string, index = 0): ClubBadge => clubBadges[clubId] ?? { type: 'icon', value: badgeOptions[index % badgeOptions.length] }
+
+  const importClubBadge = async (clubId: string) => {
+    try {
+      if (!await confirmPhotoPermission('library')) return
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'] as ('images')[],
+        allowsEditing: true,
+        aspect: [1, 1] as [number, number],
+        quality: 0.85,
+      })
+      if (!result.canceled && result.assets[0]?.uri) {
+        setClubBadges((current) => ({ ...current, [clubId]: { type: 'image', value: result.assets[0].uri } }))
+      }
+    } catch (error) {
+      Alert.alert('Unable to select badge', error instanceof Error ? error.message : 'Please try again.')
+    }
+  }
+
   const renderHome = () => (
     <ScrollView style={styles.clubsScreen} className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
@@ -1274,11 +1307,6 @@ export default function NativeApp() {
           </Pressable>
         </View>
       } />
-      <Pressable className="mb-5 min-h-[66px] flex-row items-center rounded-[24px] border border-accent-200 bg-[#fbfff4] px-3.5 shadow-md dark:border-[#61752a] dark:bg-[#1a2518]" onPress={() => setComposing(true)}>
-        <Avatar name={accountUsername} size={38} photoUri={profileAvatarUrl} />
-        <Text className="ml-3 flex-1 text-[15px] font-medium text-ink dark:text-slate-200">What's happening outside?</Text>
-        <View className="h-10 w-10 items-center justify-center rounded-full bg-accent-200"><AppIcon name="add" size={19} color={colors.ink} /></View>
-      </Pressable>
       {posts.map((post) => (
         <PostCard
           key={post.id}
@@ -1338,16 +1366,29 @@ export default function NativeApp() {
           </Pressable>
         </View>
       } />
-      <View className="items-center rounded-[28px] border border-[#dfe7d9] bg-white p-5 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
-        <Avatar name={accountUsername} size={76} photoUri={profileAvatarUrl} />
-        <Text className="mt-3 text-[21px] font-extrabold text-ink dark:text-slate-100">{accountHandle}</Text>
-        {!!profileName && <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{profileName}</Text>}
-        <Text className="mt-2 text-center text-xs leading-[18px] text-slate-500 dark:text-slate-400">{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
-        <View className="mt-4 w-full flex-row justify-around border-t border-[#edf0e7] pt-4 dark:border-[#2a382c]">
-          <View className="items-center"><Text className="text-lg font-extrabold text-ink dark:text-slate-100">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Clubs</Text></View>
-          <View className="items-center"><Text className="text-lg font-extrabold text-ink dark:text-slate-100">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Events</Text></View>
-          <View className="items-center"><Text className="text-lg font-extrabold text-ink dark:text-slate-100">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Posts</Text></View>
+      <View className="rounded-[28px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
+        <View className="flex-row items-center">
+          <Avatar name={accountUsername} size={82} photoUri={profileAvatarUrl} />
+          <View className="ml-4 flex-1">
+            <Text className="text-[20px] font-extrabold text-ink dark:text-slate-100">{accountHandle}</Text>
+            {!!profileName && <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{profileName}</Text>}
+            <View className="mt-3 flex-row justify-between pr-2">
+              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Clubs</Text></View>
+              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Events</Text></View>
+              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Posts</Text></View>
+            </View>
+          </View>
         </View>
+        <Text className="mt-4 text-xs leading-[18px] text-slate-500 dark:text-slate-400">{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
+        {!!joined.length && <View className="mt-4 border-t border-[#edf0e7] pt-4 dark:border-[#2a382c]">
+          <Text className="mb-3 text-[10px] font-extrabold uppercase tracking-[1px] text-slate-500 dark:text-slate-400">Club badges</Text>
+          <View className="flex-row flex-wrap gap-3">
+            {joined.map((id, index) => {
+              const club = clubById(id)
+              return <Pressable key={id} onPress={() => setSelectedClub(club)} accessibilityRole="button" accessibilityLabel={`Open ${club.name} club page`}><ClubBadgeView badge={badgeForClub(id, index)} /></Pressable>
+            })}
+          </View>
+        </View>}
         <View style={styles.accountActions}>
           <Pressable style={styles.accountAction} onPress={() => setTab('owner')}>
             <Text style={styles.simpleRowTitle}>{ownerStatus === 'verified' ? 'Manage your clubs' : ownerStatus === 'pending' ? 'Finish club owner verification' : 'Get club owner certified'}</Text>
@@ -1531,6 +1572,17 @@ export default function NativeApp() {
           <ScrollView contentContainerStyle={styles.modalPadding}>
             <Text style={styles.modalTitle}>{selectedManagedClub.name}</Text>
             {!!(selectedManagedClub.activity || selectedManagedClub.location) && <Text style={styles.modalSub}>{[selectedManagedClub.activity, selectedManagedClub.location].filter(Boolean).join(' · ')}</Text>}
+            <View className="my-4 rounded-[22px] border border-accent-200 bg-[#f0f7d0] p-4 dark:border-[#46552d] dark:bg-[#1b2919]">
+              <Text className="text-xs font-extrabold text-ink dark:text-slate-100">Club badge</Text>
+              <Text className="mt-1 text-[10px] leading-[15px] text-slate-600 dark:text-slate-400">Choose a badge for your club page or import your own image.</Text>
+              <View className="mt-3 flex-row items-center gap-3">
+                <ClubBadgeView badge={badgeForClub(selectedManagedClub.id)} size={52} />
+                <View className="flex-1 flex-row flex-wrap gap-2">
+                  {badgeOptions.map((badge) => <Pressable key={badge} onPress={() => setClubBadges((current) => ({ ...current, [selectedManagedClub.id]: { type: 'icon', value: badge } }))} className="h-10 w-10 items-center justify-center rounded-full border border-white bg-white dark:bg-[#18221a]" accessibilityLabel={`Use ${badge} badge`}><Ionicons name={badge} size={18} color={colors.ink} /></Pressable>)}
+                  <Pressable onPress={() => { void importClubBadge(selectedManagedClub.id) }} className="h-10 flex-row items-center justify-center gap-1 rounded-full border border-ink bg-ink px-3" accessibilityRole="button"><Ionicons name="images-outline" size={15} color={colors.white} /><Text className="text-[10px] font-extrabold text-white">Import</Text></Pressable>
+                </View>
+              </View>
+            </View>
             <Text style={styles.sectionTitle}>About</Text>
             <Text style={styles.bodyText}>{selectedManagedClub.description || 'This club has not added a description yet.'}</Text>
             {!!managedClubUpdates.length && <Text style={styles.sectionTitle}>Club updates</Text>}
