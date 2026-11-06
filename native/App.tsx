@@ -32,7 +32,7 @@ import { ActivityScreen } from './ActivityScreen'
 import { AuthScreen } from './AuthScreen'
 import { OwnerAccessScreen } from './OwnerAccessScreen'
 import { OwnerTools } from './OwnerTools'
-import { activityIdeasForCountry, fetchNearbyPlaces, lookupPostalLocation, type NearbyPlace } from './nearbyPlaces'
+import { fetchNearbyPlaces, lookupPostalLocation, type NearbyPlace } from './nearbyPlaces'
 import {
   beginActivity,
   finishActivity,
@@ -750,6 +750,7 @@ export default function NativeApp() {
       setNearbyPlacesError('')
       setNearbyPlaces([])
       setLoadingNearbyPlaces(true)
+      setSearchingPostalCode(false)
       try {
         setNearbyPlaces(await fetchNearbyPlaces(coordinates))
       } catch (error) {
@@ -1122,7 +1123,7 @@ export default function NativeApp() {
         <Pressable className="min-h-[46px] min-w-[82px] items-center justify-center rounded-[16px] bg-ink px-4 shadow-sm" onPress={() => {
           void searchByPostalCode()
         }} disabled={searchingPostalCode}>
-          <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Searching…' : 'Search'}</Text>
+          <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Looking up…' : 'Update'}</Text>
         </Pressable>
       </View>
       <Pressable className="mb-4 min-h-[46px] flex-row items-center justify-center gap-2 rounded-[16px] border border-[#dfe7d9] bg-white shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]" onPress={findNearbyActivities} disabled={locatingClubs}>
@@ -1133,21 +1134,21 @@ export default function NativeApp() {
         <AppIcon name="navigate-outline" color={colors.ink} />
         <Text style={styles.locationBannerText}>{locationLabel}<Text style={styles.mutedText}> · {nearbyPlaces.length} places found</Text></Text>
       </View>
-      <SectionTitle title="Activities to try here" />
-      <Text style={styles.nearbyAttribution}>Ideas for your selected location; nearby venues are listed below when map data is available.</Text>
-      <View style={styles.activityIdeaList}>
-        {activityIdeasForCountry(countryCode).map((idea) => (
-          <View key={idea} style={styles.activityIdeaChip} className="rounded-full border border-[#dfe7d9] bg-white px-3 py-2 dark:border-[#2a3b30] dark:bg-[#132018]">
-            <Text style={styles.activityIdeaText} className="dark:text-[#d9ff5a]">{idea}</Text>
-          </View>
-        ))}
-      </View>
+      <SectionTitle title={`Clubs near ${locationLabel}`} />
+      <Text style={styles.nearbyAttribution}>Find nearby groups for running, hiking, cycling, wellness, and more.</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipList}>
+        {categories.map((item) => <Chip key={item} label={item} selected={category === item} onPress={() => setCategory(item)} />)}
+      </ScrollView>
+      {visibleClubs.map(({ club, miles }) => (
+        <ClubCard key={club.id} club={club} miles={miles} joined={joined.includes(club.id)} onPress={() => setSelectedClub(club)} />
+      ))}
+      {!visibleClubs.length && <Text style={styles.emptyText}>No clubs within 50 miles match this activity. Try another postal code or category.</Text>}
       <SectionTitle title={`Places to move near ${locationLabel}`} />
       <Text style={styles.nearbyAttribution}>Parks, trails, sports areas, and fitness places · Map data © OpenStreetMap contributors.</Text>
       {loadingNearbyPlaces && <Text style={styles.simpleRowSub}>Looking for places nearby…</Text>}
       {!!nearbyPlacesError && <Text accessibilityRole="alert" style={styles.errorText}>{nearbyPlacesError}</Text>}
       {!loadingNearbyPlaces && !nearbyPlacesError && nearbyPlaces.length === 0 && (
-        <Text style={styles.emptyText}>No mapped activity spots found nearby yet. Try another postal code or use the activity ideas above.</Text>
+        <Text style={styles.emptyText}>No mapped activity spots found nearby yet. Try another postal code or use Find activities near me.</Text>
       )}
       {nearbyPlaces.slice(0, 12).map((place) => (
         <Pressable key={place.id} style={styles.nearbyPlaceCard} className="rounded-[20px] border-[#dfe7d9] bg-white shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => { void openNearbyPlace(place) }}>
@@ -1159,12 +1160,6 @@ export default function NativeApp() {
           </View>
           <AppIcon name="open-outline" color={colors.muted} size={17} />
         </Pressable>
-      ))}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipList}>
-        {categories.map((item) => <Chip key={item} label={item} selected={category === item} onPress={() => setCategory(item)} />)}
-      </ScrollView>
-      {visibleClubs.map(({ club, miles }) => (
-        <ClubCard key={club.id} club={club} miles={miles} joined={joined.includes(club.id)} onPress={() => setSelectedClub(club)} />
       ))}
       {!!managedClubs.length && <SectionTitle title="Community clubs" />}
       {managedClubs.map((club) => (
