@@ -278,36 +278,36 @@ function PostCard({
   onComments: () => void
 }) {
   return (
-    <View style={styles.postCard}>
-      <View style={styles.postAuthorRow}>
+    <View className="mb-3 rounded-[21px] border border-line bg-white p-4 shadow-card dark:border-slate-700 dark:bg-slate-900">
+      <View className="mb-3 flex-row items-center gap-2.5">
         <Avatar name={post.handle} size={40} photoUri={post.mine ? photoUri : null} />
-        <View style={styles.postAuthorInfo}>
-          <Text style={styles.postAuthor}>@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
-          <Text style={styles.postSubline}>{post.club ? `${post.club} · ` : ''}{post.time}</Text>
+        <View className="flex-1">
+          <Text className="text-xs font-extrabold text-ink dark:text-slate-100">@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
+          <Text className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{post.club ? `${post.club} · ` : ''}{post.time}</Text>
         </View>
-        <Pressable accessibilityLabel="More post options" hitSlop={8}><AppIcon name="ellipsis-horizontal" color={colors.muted} /></Pressable>
+        <Pressable accessibilityLabel="More post options" hitSlop={8} className="h-11 w-11 items-center justify-center"><AppIcon name="ellipsis-horizontal" color={colors.muted} /></Pressable>
       </View>
-      {!!post.text && <Text style={styles.postText}>{post.text}</Text>}
-      {!!post.image && <Image source={{ uri: post.image }} style={styles.postImage} />}
-      {!!post.location && <Text style={styles.postLocation}><AppIcon name="location-outline" size={14} color={colors.muted} />  {post.location}</Text>}
-      <View style={styles.postActions}>
-        <Pressable onPress={onLike} style={styles.postAction} accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike post' : 'Like post'}>
+      {!!post.text && <Text className="mb-3.5 text-sm leading-[21px] text-ink dark:text-slate-100">{post.text}</Text>}
+      {!!post.image && <Image source={{ uri: post.image }} className="h-[230px] w-full rounded-[15px] bg-slate-200 dark:bg-slate-800" />}
+      {!!post.location && <Text className="mt-2 flex-row items-center text-xs text-slate-500 dark:text-slate-400"><AppIcon name="location-outline" size={14} color={colors.muted} />  {post.location}</Text>}
+      <View className="mt-3 flex-row items-center gap-5 border-t border-line pt-3 dark:border-slate-700">
+        <Pressable onPress={onLike} className="min-h-[44px] flex-row items-center gap-1.5 px-1" accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike post' : 'Like post'}>
           <AppIcon name={post.liked ? 'heart' : 'heart-outline'} color={post.liked ? '#e9516c' : colors.ink} />
-          <Text style={styles.postActionText}>{post.likes}</Text>
+          <Text className="text-xs font-semibold text-ink dark:text-slate-200">{post.likes}</Text>
         </Pressable>
-        <Pressable onPress={onComments} style={styles.postAction} accessibilityLabel="View comments">
+        <Pressable onPress={onComments} className="min-h-[44px] flex-row items-center gap-1.5 px-1" accessibilityLabel="View comments">
           <AppIcon name="chatbubble-outline" />
-          <Text style={styles.postActionText}>{post.comments.length}</Text>
+          <Text className="text-xs font-semibold text-ink dark:text-slate-200">{post.comments.length}</Text>
         </Pressable>
-        <View style={styles.postActionSpacer} />
-        <Pressable onPress={onSave} accessibilityLabel={post.saved ? 'Unsave post' : 'Save post'}>
+        <View className="flex-1" />
+        <Pressable onPress={onSave} className="min-h-[44px] w-11 items-center justify-center" accessibilityLabel={post.saved ? 'Unsave post' : 'Save post'}>
           <AppIcon name={post.saved ? 'bookmark' : 'bookmark-outline'} color={post.saved ? colors.blue : colors.ink} />
         </Pressable>
       </View>
       {!!post.comments.length && (
-        <Pressable onPress={onComments} style={styles.commentPreview}>
-          <Text style={styles.commentPreviewText} numberOfLines={2}>
-            <Text style={styles.commentAuthor}>@{post.comments[post.comments.length - 1].handle} </Text>
+        <Pressable onPress={onComments} className="mt-2.5">
+          <Text className="text-[11px] leading-4 text-ink dark:text-slate-300" numberOfLines={2}>
+            <Text className="font-extrabold">@{post.comments[post.comments.length - 1].handle} </Text>
             {post.comments[post.comments.length - 1].text}
           </Text>
         </Pressable>
@@ -1249,7 +1249,8 @@ export default function NativeApp() {
 
   const renderFeed = () => (
     <ScrollView
-      contentContainerStyle={styles.screenContent}
+      className="flex-1 bg-paper dark:bg-[#10130f]"
+      contentContainerClassName="px-[18px] pb-8 pt-5"
       refreshControl={
         <RefreshControl
           refreshing={refreshingFeed}
@@ -1264,14 +1265,14 @@ export default function NativeApp() {
       }
     >
       <ScreenHeader title={accountHandle} action={
-        <Pressable style={styles.roundAction} onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
+        <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-line bg-white dark:border-slate-700 dark:bg-slate-900" onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
           <AppIcon name="add" />
         </Pressable>
       } />
-      <Pressable style={styles.composePrompt} onPress={() => setComposing(true)}>
+      <Pressable className="mb-4 min-h-[62px] flex-row items-center rounded-[21px] border border-line bg-white px-3.5 shadow-card dark:border-slate-700 dark:bg-slate-900" onPress={() => setComposing(true)}>
         <Avatar name={accountUsername} size={38} photoUri={profileAvatarUrl} />
-        <Text style={styles.composePromptText}>What's happening outside?</Text>
-        <View style={styles.composePlus}><AppIcon name="add" size={18} /></View>
+        <Text className="ml-3 flex-1 text-sm text-slate-500 dark:text-slate-400">What's happening outside?</Text>
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-accent-200"><AppIcon name="add" size={18} color={colors.ink} /></View>
       </Pressable>
       {posts.map((post) => (
         <PostCard
