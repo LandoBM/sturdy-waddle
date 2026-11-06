@@ -1370,8 +1370,7 @@ export default function NativeApp() {
         <View className="flex-row items-center">
           <Avatar name={accountUsername} size={82} photoUri={profileAvatarUrl} />
           <View className="ml-4 flex-1">
-            <Text className="text-[20px] font-extrabold text-ink dark:text-slate-100">{accountHandle}</Text>
-            {!!profileName && <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{profileName}</Text>}
+            <Text className="text-[20px] font-extrabold text-ink dark:text-slate-100">{profileName || accountHandle}</Text>
             <View className="mt-3 flex-row justify-between pr-2">
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Clubs</Text></View>
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Events</Text></View>
