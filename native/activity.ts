@@ -112,7 +112,11 @@ function appendLocation(activity: RecordedActivity, location: Location.LocationO
 TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
   ACTIVITY_LOCATION_TASK,
   async ({ data, error }) => {
-    if (error) throw error
+    // Core Location can briefly report kCLErrorDomain Code=0 when GPS is
+    // unavailable or the device is moving between location sources. Do not
+    // throw from the task: that marks the background task as failed and ends
+    // an otherwise valid activity session.
+    if (error) return
     const locations = data?.locations
     if (!locations?.length) return
     const userId = await AsyncStorage.getItem(ACTIVE_ACTIVITY_USER_KEY)
