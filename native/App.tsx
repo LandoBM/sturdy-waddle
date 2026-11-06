@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
+import { Pacifico_400Regular } from '@expo-google-fonts/pacifico'
 import * as ImagePicker from 'expo-image-picker'
 import * as Location from 'expo-location'
+import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import {
@@ -120,12 +122,12 @@ function AppIcon({ name, size = 20, color = colors.ink }: { name: IconName; size
   return <Ionicons name={name} size={size} color={color} />
 }
 
-function ScreenHeader({ title, action, centerTitle = false }: { title: string; action?: ReactNode; centerTitle?: boolean }) {
+function ScreenHeader({ title, action, centerTitle = false, wordmark = false }: { title: string; action?: ReactNode; centerTitle?: boolean; wordmark?: boolean }) {
   return (
     <View style={styles.screenHeader}>
       {centerTitle && <View style={styles.screenHeaderSpacer} />}
       <View style={[styles.screenHeading, centerTitle && styles.screenHeadingCentered]}>
-        <Text style={[styles.screenTitle, centerTitle && styles.screenTitleCentered]} numberOfLines={1} adjustsFontSizeToFit={centerTitle}>
+        <Text style={[styles.screenTitle, centerTitle && styles.screenTitleCentered, wordmark && styles.screenWordmark]} numberOfLines={1} adjustsFontSizeToFit={centerTitle}>
           {title}
         </Text>
       </View>
@@ -317,6 +319,7 @@ function PostCard({
 }
 
 export default function NativeApp() {
+  const [fontsLoaded] = useFonts({ Pacifico_400Regular })
   const insets = useSafeAreaInsets()
   const [tab, setTab] = useState<Tab>('feed')
   const [refreshingFeed, setRefreshingFeed] = useState(false)
@@ -1264,7 +1267,7 @@ export default function NativeApp() {
         />
       }
     >
-      <ScreenHeader title="FitHive" centerTitle action={
+      <ScreenHeader title="FitHive" centerTitle wordmark action={
         <View className="w-[93px] items-end">
           <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
             <AppIcon name="add" />
@@ -1368,7 +1371,7 @@ export default function NativeApp() {
     </ScrollView>
   )
 
-  if (authLoading) {
+  if (authLoading || !fontsLoaded) {
     return <SafeAreaView style={styles.safeArea}><View style={styles.authLoading}><Text style={styles.authLoadingText}>Loading your account…</Text></View></SafeAreaView>
   }
   if (!session) return <AuthScreen client={supabaseClient} />
@@ -1811,6 +1814,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.1, marginBottom: 4 },
   screenTitle: { color: colors.ink, fontSize: 29, lineHeight: 35, fontWeight: '800', letterSpacing: -1.1 },
   screenTitleCentered: { textAlign: 'center', width: '100%', fontSize: 25, letterSpacing: -0.4, fontWeight: '900' },
+  screenWordmark: { fontFamily: 'Pacifico_400Regular', fontSize: 30, lineHeight: 40, letterSpacing: 0, fontWeight: '400' },
   roundAction: { width: 42, height: 42, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   profileHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white, borderRadius: 15, paddingHorizontal: 13, height: 48, borderWidth: 1, borderColor: colors.line, marginBottom: 10 },
