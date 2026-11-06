@@ -1088,7 +1088,7 @@ export default function NativeApp() {
   }
 
   const renderHome = () => (
-    <ScrollView style={styles.clubsScreen} className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
+    <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
         <Pressable style={styles.roundAction} onPress={() => setTab('profile')} accessibilityLabel="Open profile">
           <AppIcon name="person-outline" />
@@ -1208,7 +1208,7 @@ export default function NativeApp() {
   )
 
   const renderSchedule = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
+    <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Schedule" />
       <View className="mb-3 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
         <View style={styles.weekCalendarHeader}>
@@ -1345,7 +1345,7 @@ export default function NativeApp() {
   )
 
   const renderExplore = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
+    <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Explore" />
       <View className="mb-2 rounded-[24px] border border-accent-200 bg-[#eef6d2] p-5 dark:border-[#4b6138] dark:bg-[#16281c]">
         <Text className="text-[25px] font-extrabold tracking-[-0.8px] text-ink dark:text-[#f3f7f0]">A little more outside.</Text>
@@ -1369,7 +1369,7 @@ export default function NativeApp() {
   )
 
   const renderProfile = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
+    <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title={accountHandle} centerTitle action={
         <View style={styles.profileHeaderActions}>
           <Pressable
@@ -1460,7 +1460,11 @@ export default function NativeApp() {
           const active = tab === item.id
           return (
             <Pressable key={item.id} style={styles.tabButton} onPress={() => setTab(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
-              <AppIcon name={item.icon} size={22} color={active ? colors.ink : colors.muted} />
+              {item.id === 'profile' ? (
+                <View className={`h-7 w-7 items-center justify-center rounded-full border-2 ${active ? 'border-accent-200' : 'border-transparent'}`}>
+                  <Avatar name={accountUsername} size={24} photoUri={profileAvatarUrl} />
+                </View>
+              ) : <AppIcon name={item.icon} size={22} color={active ? colors.ink : colors.muted} />}
               <Text style={[styles.tabLabel, active && styles.tabLabelActive]} className={active ? 'dark:text-[#d9ff5a]' : 'dark:text-[#9eafa2]'}>{item.label}</Text>
               {active && <View style={styles.tabIndicator} />}
             </Pressable>
@@ -1920,7 +1924,7 @@ const styles = StyleSheet.create({
   screenHeading: { flex: 1 },
   screenHeadingCentered: { alignItems: 'center', justifyContent: 'center' },
   eyebrow: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.1, marginBottom: 4 },
-  screenTitle: { color: colors.ink, fontSize: 29, lineHeight: 35, fontWeight: '800', letterSpacing: -1.1 },
+  screenTitle: { fontSize: 29, lineHeight: 35, fontWeight: '800', letterSpacing: -1.1 },
   screenTitleCentered: { textAlign: 'center', width: '100%', fontSize: 25, letterSpacing: -0.4, fontWeight: '900' },
   screenWordmark: { fontFamily: 'Pacifico_400Regular', fontSize: 30, lineHeight: 40, letterSpacing: 0, fontWeight: '400' },
   roundAction: { width: 42, height: 42, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
@@ -1969,8 +1973,8 @@ const styles = StyleSheet.create({
   avatarImage: { position: 'absolute' },
   avatarText: { color: colors.ink, fontWeight: '800' },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 15, marginBottom: 12 },
-  sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '800' },
-  textLink: { color: colors.ink, fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' },
+  sectionTitle: { fontSize: 18, fontWeight: '800' },
+  textLink: { fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' },
   highlightCard: { backgroundColor: colors.ink, borderRadius: 25, padding: 19, marginBottom: 14, shadowColor: '#17351e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 14, elevation: 5 },
   highlightEyebrow: { color: colors.lime, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   highlightTitle: { color: colors.white, fontSize: 22, lineHeight: 27, fontWeight: '800', marginTop: 9 },
