@@ -138,8 +138,8 @@ function ScreenHeader({ title, action, centerTitle = false, wordmark = false }: 
 
 function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]} className="min-h-[44px] justify-center rounded-full border-[#dfe7d9] bg-white px-4 dark:border-[#2b3a2d] dark:bg-[#18221a]">
+      <Text style={[styles.chipText, selected && styles.chipTextSelected]} className="dark:text-slate-100">{label}</Text>
     </Pressable>
   )
 }
@@ -170,17 +170,17 @@ function SectionTitle({ title, action, onPress }: { title: string; action?: stri
 
 function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number; joined: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.clubCard}>
+    <Pressable onPress={onPress} style={styles.clubCard} className="mb-4 overflow-hidden rounded-[26px] border-0 bg-white shadow-lg dark:bg-[#18221a]">
       <Image source={{ uri: club.image }} style={styles.clubImage} />
       <View style={styles.clubImageShade} />
       <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{club.category.toUpperCase()}</Text></View>
       {joined && <View style={styles.joinedBadge}><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
-      <View style={styles.clubCardBody}>
-        <Text style={styles.clubName}>{club.name}</Text>
-        <Text style={styles.clubMission} numberOfLines={2}>{club.mission}</Text>
+      <View style={styles.clubCardBody} className="p-4">
+        <Text style={styles.clubName} className="text-[19px] dark:text-slate-100">{club.name}</Text>
+        <Text style={styles.clubMission} className="dark:text-slate-400" numberOfLines={2}>{club.mission}</Text>
         <View style={styles.metaRow}>
-          <Text style={styles.metaText}><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
-          <Text style={styles.metaText}><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
+          <Text style={styles.metaText} className="dark:text-slate-400"><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
+          <Text style={styles.metaText} className="dark:text-slate-400"><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
         </View>
       </View>
     </Pressable>
@@ -1034,13 +1034,13 @@ export default function NativeApp() {
   }
 
   const renderHome = () => (
-    <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
         <Pressable style={styles.roundAction} onPress={() => setTab('profile')} accessibilityLabel="Open profile">
           <AppIcon name="person-outline" />
         </Pressable>
       } />
-      <View style={styles.searchBox}>
+      <View style={styles.searchBox} className="rounded-[20px] border-[#dfe7d9] bg-white shadow-sm dark:border-[#2b3a2d] dark:bg-[#18221a]">
         <AppIcon name="search-outline" color={colors.muted} />
         <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={colors.muted} style={styles.searchInput} returnKeyType="search" />
       </View>
@@ -1070,17 +1070,17 @@ export default function NativeApp() {
             accessibilityLabel="Postal code"
           />
         </View>
-        <Pressable style={[styles.searchButton, searchingPostalCode && styles.disabledAction]} onPress={() => {
+        <Pressable style={[styles.searchButton, searchingPostalCode && styles.disabledAction]} className="min-h-[44px] rounded-[15px] bg-ink" onPress={() => {
           void searchByPostalCode()
         }} disabled={searchingPostalCode}>
           <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Searching…' : 'Search'}</Text>
         </Pressable>
       </View>
-      <Pressable style={styles.nearMeButton} onPress={findNearbyActivities} disabled={locatingClubs}>
+      <Pressable style={styles.nearMeButton} className="min-h-[44px] rounded-[16px] border-[#dfe7d9] bg-white dark:border-[#2b3a2d] dark:bg-[#18221a]" onPress={findNearbyActivities} disabled={locatingClubs}>
         <AppIcon name="navigate-outline" color={colors.blue} />
         <Text style={styles.nearMeText}>{locatingClubs ? 'Finding your location…' : 'Find activities near me'}</Text>
       </Pressable>
-      <View style={styles.locationBanner}>
+      <View style={styles.locationBanner} className="rounded-[17px] border border-accent-200 bg-[#f0f7d0] dark:border-[#46552d] dark:bg-[#1b2919]">
         <AppIcon name="navigate-outline" color={colors.ink} />
         <Text style={styles.locationBannerText}>{locationLabel}<Text style={styles.mutedText}> · {nearbyPlaces.length} places found</Text></Text>
       </View>
