@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
 import * as MediaLibrary from 'expo-media-library'
-import { useMemo, useRef, useState, type Ref } from 'react'
+import { useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import Svg, { Circle, Polyline } from 'react-native-svg'
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
-import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
+import { type ActivityKind, type ActivityPoint, type ActivityStore, type RecordedActivity } from './activity'
 import { activityCatalog, activityTracksRoute } from './activityCatalog'
 import { RouteMap } from './RouteMap'
 import { FitnessRings, type FitnessRingValues } from './FitnessRings'
@@ -41,13 +41,31 @@ function routePolyline(points: RecordedActivity['points'], width: number, height
   return points.map((point) => `${offsetX + (point.longitude - minLon) * scale},${height - offsetY - (point.latitude - minLat) * scale}`).join(' ')
 }
 
+function demoRoutePoints(activity: RecordedActivity): ActivityPoint[] {
+  const seed = [...activity.id].reduce((total, character) => total + character.charCodeAt(0), 0)
+  const routes = [
+    [[0, 0], [0.14, 0.06], [0.28, 0.2], [0.2, 0.36], [0.02, 0.44], [-0.16, 0.32], [-0.22, 0.12], [-0.08, -0.02], [0.12, -0.08], [0.28, 0.02]],
+    [[0, 0], [0.1, 0.16], [0.24, 0.26], [0.38, 0.16], [0.46, -0.02], [0.36, -0.18], [0.18, -0.24], [0.02, -0.12], [-0.1, 0.06], [-0.02, 0.22]],
+    [[0, 0], [0.16, 0.02], [0.08, 0.16], [0.26, 0.24], [0.18, 0.4], [0.02, 0.34], [-0.06, 0.5], [-0.22, 0.38], [-0.12, 0.2], [-0.24, 0.04]],
+  ] as const
+  const route = routes[seed % routes.length]
+  const latitude = 34.04 + (seed % 30) / 1000
+  const longitude = -118.25 - (seed % 25) / 1000
+  return route.map(([x, y], index) => ({
+    latitude: latitude + y / 100,
+    longitude: longitude + x / 100,
+    altitude: null,
+    timestamp: activity.startedAt + index * 60_000,
+  }))
+}
+
 function RouteExportCard({ activity, captureTarget }: { activity: RecordedActivity; captureTarget: Ref<any> }) {
   const { width } = useWindowDimensions()
   const cardWidth = Math.min(width - 36, 360)
   const routeHeight = 230
-  const polyline = routePolyline(activity.points, cardWidth, routeHeight)
-  const firstPoint = activity.points[0]
-  const lastPoint = activity.points[activity.points.length - 1]
+  const hasRecordedRoute = activity.points.length > 1
+  const routePoints = hasRecordedRoute ? activity.points : demoRoutePoints(activity)
+  const polyline = routePolyline(routePoints, cardWidth, routeHeight)
   return (
     <View ref={captureTarget} collapsable={false} style={[styles.exportCard, { width: cardWidth }]}>
       <View style={styles.exportHeader}>
@@ -65,7 +83,7 @@ function RouteExportCard({ activity, captureTarget }: { activity: RecordedActivi
         <View><Text style={styles.exportValue}>{formatPace(calculatePaceSecondsPerMile(activity.distanceMeters, activity.elapsedSeconds))}</Text><Text style={styles.exportLabel}>AVG PACE</Text></View>
       </View>
       <Text style={styles.exportDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
-      {!firstPoint || !lastPoint ? <Text style={styles.exportNoRoute}>No GPS path was recorded for this activity.</Text> : null}
+      {!hasRecordedRoute ? <Text style={styles.exportNoRoute}>Preview route · GPS points were not saved for this activity.</Text> : null}
     </View>
   )
 }
@@ -87,6 +105,7 @@ export function ActivityScreen({
   onResume,
   onFinish,
   ringMetrics,
+  bottomTabs,
 }: {
   store: ActivityStore
   elapsedSeconds: number
@@ -95,6 +114,7 @@ export function ActivityScreen({
   onResume: () => void
   onFinish: () => void
   ringMetrics: FitnessRingValues
+  bottomTabs?: ReactNode
 }) {
   const [kind, setKind] = useState<ActivityKind>('Hiking')
   const [activitySearch, setActivitySearch] = useState('')
@@ -232,6 +252,7 @@ export function ActivityScreen({
               <Text style={styles.detailHint}>Your route card includes the path, FitHive branding, distance, time, and average pace.</Text>
             </ScrollView>
           ) : null}
+          {bottomTabs}
         </View>
       </Modal>
     </ScrollView>

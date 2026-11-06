@@ -1447,6 +1447,7 @@ export default function NativeApp() {
             onResume={() => { void runActivityAction(resumeActivity) }}
             onFinish={() => { void runActivityAction(finishActivity) }}
             ringMetrics={ringMetricsForDate(new Date())}
+            bottomTabs={renderBottomTabs()}
           />
         )}
         {tab === 'feed' && renderFeed()}
