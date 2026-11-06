@@ -15,6 +15,46 @@ export interface PostalLocation extends Coordinates {
   country: string
 }
 
+export async function lookupPostalLocation(country: string, postalCode: string): Promise<PostalLocation> {
+  const normalizedCountry = country.toUpperCase()
+  const normalizedPostalCode = postalCode.trim()
+  let primaryError: unknown
+
+  try {
+    const response = await fetch(`https://api.zippopotam.us/${normalizedCountry}/${encodeURIComponent(normalizedPostalCode)}`)
+    if (response.ok) {
+      const location = parsePostalLocation(await response.json())
+      if (location) return location
+    } else if (response.status === 404) {
+      primaryError = new Error('That postal code was not found for this country.')
+    }
+  } catch (error) {
+    primaryError = error
+  }
+
+  const fallbackResponse = await fetch(
+    `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(normalizedPostalCode)}&countrycodes=${normalizedCountry.toLowerCase()}&format=jsonv2&addressdetails=1&limit=1`,
+    { headers: { Accept: 'application/json', 'User-Agent': 'FitHive mobile app' } },
+  )
+  if (!fallbackResponse.ok) {
+    throw primaryError instanceof Error ? primaryError : new Error('Postal code lookup is temporarily unavailable.')
+  }
+  const results: unknown = await fallbackResponse.json()
+  if (!Array.isArray(results) || !results.length || !isRecord(results[0])) {
+    throw primaryError instanceof Error ? primaryError : new Error('That postal code was not found for this country.')
+  }
+  const result = results[0]
+  const address = isRecord(result.address) ? result.address : {}
+  const latitude = Number(result.lat)
+  const longitude = Number(result.lon)
+  const city = address.city ?? address.town ?? address.village ?? address.municipality ?? address.suburb ?? ''
+  const region = address.state ?? address.county ?? ''
+  if (typeof city !== 'string' || typeof region !== 'string' || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('The postal code service returned an invalid location. Try again.')
+  }
+  return { city, region, country: normalizedCountry, latitude, longitude }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

@@ -32,7 +32,7 @@ import { ActivityScreen } from './ActivityScreen'
 import { AuthScreen } from './AuthScreen'
 import { OwnerAccessScreen } from './OwnerAccessScreen'
 import { OwnerTools } from './OwnerTools'
-import { activityIdeasForCountry, fetchNearbyPlaces, parsePostalLocation, type NearbyPlace } from './nearbyPlaces'
+import { activityIdeasForCountry, fetchNearbyPlaces, lookupPostalLocation, type NearbyPlace } from './nearbyPlaces'
 import {
   beginActivity,
   finishActivity,
@@ -741,14 +741,7 @@ export default function NativeApp() {
     }
     setSearchingPostalCode(true)
     try {
-      const response = await fetch(`https://api.zippopotam.us/${country}/${encodeURIComponent(postalCode)}`)
-      if (!response.ok) {
-        throw new Error(response.status === 404
-          ? 'That postal code was not found for this country. Check both fields and try again.'
-          : 'Postal code lookup is temporarily unavailable.')
-      }
-      const location = parsePostalLocation(await response.json())
-      if (!location) throw new Error('The postal code service returned an invalid location. Try again.')
+      const location = await lookupPostalLocation(country, postalCode)
       const coordinates = { latitude: location.latitude, longitude: location.longitude }
       setClubCoordinates(coordinates)
       setCountryCode(location.country)
@@ -1090,14 +1083,10 @@ export default function NativeApp() {
   const renderHome = () => (
     <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-8 pt-5" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
-        <Pressable style={styles.roundAction} className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => setTab('profile')} accessibilityLabel="Open profile">
-          <AppIcon name="person-outline" />
+        <Pressable className="h-11 w-11 items-center justify-center rounded-full border-2 border-accent-200 bg-white p-0.5 shadow-md dark:bg-[#132018]" onPress={() => setTab('profile')} accessibilityLabel="Open profile">
+          <Avatar name={accountUsername} size={36} photoUri={profileAvatarUrl} />
         </Pressable>
       } />
-      <View className="mb-3 rounded-[24px] border border-accent-200 bg-[#f0f7d0] p-4 shadow-sm dark:border-[#4b6138] dark:bg-[#16281c]">
-        <Text className="text-[18px] font-extrabold tracking-[-0.3px] text-ink dark:text-[#f3f7f0]">Move with your people.</Text>
-        <Text className="mt-1 text-[12px] leading-[18px] text-slate-600 dark:text-[#9eafa2]">Discover clubs, local activities, and communities that fit your rhythm.</Text>
-      </View>
       <View className="mb-3 h-[52px] flex-row items-center gap-2 rounded-[20px] border border-[#dfe7d9] bg-white px-3 shadow-md dark:border-[#2a3b30] dark:bg-[#132018]">
         <AppIcon name="search-outline" color={colors.muted} />
         <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={colors.muted} style={styles.searchInput} className="text-ink dark:text-[#f3f7f0]" returnKeyType="search" />
