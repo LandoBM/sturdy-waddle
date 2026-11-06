@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Pacifico_400Regular } from '@expo-google-fonts/pacifico'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as ImagePicker from 'expo-image-picker'
 import { Blob as ExpoBlob } from 'expo-blob'
 import * as Location from 'expo-location'
 import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
+import { useColorScheme } from 'nativewind'
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   Alert,
@@ -59,6 +61,7 @@ type Tab = 'home' | 'schedule' | 'activity' | 'feed' | 'explore' | 'profile' | '
 type IconName = ComponentProps<typeof Ionicons>['name']
 type OwnerStatus = 'none' | 'pending' | 'verified'
 type ClubBadge = { type: 'icon' | 'image'; value: string }
+type AppearancePreference = 'system' | 'light' | 'dark'
 
 const badgeOptions: IconName[] = ['leaf-outline', 'flame-outline', 'water-outline', 'trail-sign-outline', 'sunny-outline']
 
@@ -334,6 +337,7 @@ function PostCard({
 
 export default function NativeApp() {
   const [fontsLoaded] = useFonts({ Pacifico_400Regular })
+  const { colorScheme, setColorScheme } = useColorScheme()
   const insets = useSafeAreaInsets()
   const [tab, setTab] = useState<Tab>('feed')
   const [refreshingFeed, setRefreshingFeed] = useState(false)
@@ -346,6 +350,7 @@ export default function NativeApp() {
   const [profileBio, setProfileBio] = useState('')
   const [accountSettingsError, setAccountSettingsError] = useState('')
   const [settingsVisible, setSettingsVisible] = useState(false)
+  const [appearancePreference, setAppearancePreference] = useState<AppearancePreference>('system')
   const [editingProfile, setEditingProfile] = useState(false)
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editUsername, setEditUsername] = useState('')
@@ -388,6 +393,22 @@ export default function NativeApp() {
   const [commentText, setCommentText] = useState('')
   const [activityStore, setActivityStore] = useState<ActivityStore>({ active: null, history: [], points: 0 })
   const [clock, setClock] = useState(Date.now())
+
+  useEffect(() => {
+    AsyncStorage.getItem('fithive.appearance').then((stored) => {
+      const preference: AppearancePreference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+      setAppearancePreference(preference)
+      setColorScheme(preference)
+    }).catch(() => {
+      setColorScheme('system')
+    })
+  }, [setColorScheme])
+
+  const changeAppearance = (preference: AppearancePreference) => {
+    setAppearancePreference(preference)
+    setColorScheme(preference)
+    void AsyncStorage.setItem('fithive.appearance', preference)
+  }
   const [importedWorkouts, setImportedWorkouts] = useState<ImportedWorkout[]>([])
   const [healthProvider, setHealthProvider] = useState<string | null>(null)
   const [syncingHealth, setSyncingHealth] = useState(false)
@@ -1408,7 +1429,7 @@ export default function NativeApp() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style="dark" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View style={styles.appBody}>
         {tab === 'home' && renderHome()}
         {tab === 'schedule' && renderSchedule()}
@@ -1709,6 +1730,35 @@ export default function NativeApp() {
               </View>
             </View>
             <Text style={styles.settingsSectionLabel}>PREFERENCES & CONNECTED APPS</Text>
+            <View style={styles.appearanceCard}>
+              <View style={styles.appearanceHeader}>
+                <View style={styles.appearanceIcon}>
+                  <AppIcon name="contrast-outline" color={colors.ink} />
+                </View>
+                <View style={styles.settingsRowCopy}>
+                  <Text style={styles.simpleRowTitle}>Appearance</Text>
+                  <Text style={styles.simpleRowSub}>Choose how FitHive looks on this device</Text>
+                </View>
+              </View>
+              <View style={styles.appearanceOptions}>
+                {([
+                  ['system', 'Use device settings', 'phone-portrait-outline'],
+                  ['light', 'Light', 'sunny-outline'],
+                  ['dark', 'Dark', 'moon-outline'],
+                ] as const).map(([value, label, icon]) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => changeAppearance(value)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: appearancePreference === value }}
+                    style={[styles.appearanceOption, appearancePreference === value && styles.appearanceOptionSelected]}
+                  >
+                    <AppIcon name={icon} size={16} color={appearancePreference === value ? colors.ink : colors.muted} />
+                    <Text style={[styles.appearanceOptionText, appearancePreference === value && styles.appearanceOptionTextSelected]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
             <View style={styles.settingsRow}>
               <AppIcon name="heart-circle-outline" color="#5429b8" />
               <View style={styles.settingsRowCopy}>
@@ -2026,6 +2076,14 @@ const styles = StyleSheet.create({
   settingsSectionLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1, marginTop: 12, marginBottom: 2 },
   settingsRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line },
   settingsRowCopy: { flex: 1 },
+  appearanceCard: { padding: 13, borderRadius: 17, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line },
+  appearanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  appearanceIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' },
+  appearanceOptions: { flexDirection: 'row', gap: 7, marginTop: 12 },
+  appearanceOption: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 4, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: '#fafbf8' },
+  appearanceOptionSelected: { backgroundColor: colors.lime, borderColor: colors.lime },
+  appearanceOptionText: { color: colors.muted, fontSize: 9, fontWeight: '700', textAlign: 'center' },
+  appearanceOptionTextSelected: { color: colors.ink, fontWeight: '900' },
   settingsPrivacy: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 12, paddingHorizontal: 3 },
   settingsSignOut: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, borderRadius: 24, backgroundColor: '#fff0f0' },
   connectedDeviceHint: { color: colors.muted, fontSize: 10, lineHeight: 15, marginHorizontal: 4, marginTop: -4 },
