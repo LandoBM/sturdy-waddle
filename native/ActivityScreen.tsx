@@ -51,15 +51,15 @@ export function ActivityScreen({
   )
 
   return (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-8 pt-5">
-      <Text className="text-[29px] font-extrabold tracking-[-1px] text-ink dark:text-slate-100">Activity tracker</Text>
-      <Text className="mb-4 mt-1.5 text-[13px] leading-[19px] text-slate-500 dark:text-slate-400">Choose from outdoor, fitness, cardio, and sports activities. GPS maps are available for route-based activities.</Text>
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-8 pt-5">
+      <Text className="text-[29px] font-extrabold tracking-[-1px] text-ink dark:text-[#f3f7f0]">Activity tracker</Text>
+      <Text className="mb-4 mt-1.5 text-[13px] leading-[19px] text-slate-500 dark:text-[#9eafa2]">Choose from outdoor, fitness, cardio, and sports activities. GPS maps are available for route-based activities.</Text>
 
-      <View className="mb-4 flex-row items-center gap-3 rounded-[22px] border border-accent-200 bg-[#e9f6a9] p-3.5 shadow-md dark:border-[#46552d] dark:bg-[#1b2919]">
+      <View className="mb-4 flex-row items-center gap-3 rounded-[22px] border border-accent-200 bg-[#e9f6a9] p-3.5 shadow-md dark:border-[#4b6138] dark:bg-[#16281c]">
         <View className="h-[38px] w-[38px] items-center justify-center rounded-full bg-[#efffae]"><Ionicons name="trophy" size={21} color={ink} /></View>
         <View className="flex-1">
-          <Text className="text-sm font-extrabold text-ink dark:text-slate-100">{store.points} points earned</Text>
-          <Text className="mt-0.5 text-[10px] text-[#4d5830] dark:text-slate-400">+{COMPLETION_POINTS} points for every completed activity</Text>
+          <Text className="text-sm font-extrabold text-ink dark:text-[#f3f7f0]">{store.points} points earned</Text>
+          <Text className="mt-0.5 text-[10px] text-[#4d5830] dark:text-[#9eafa2]">+{COMPLETION_POINTS} points for every completed activity</Text>
         </View>
       </View>
 
@@ -98,16 +98,16 @@ export function ActivityScreen({
           <Text style={styles.backgroundNote}>{activityTracksRoute(active.kind) ? 'GPS stays on in the background while recording. A system location indicator remains visible.' : 'This activity records your elapsed time without collecting location.'}</Text>
         </View>
       ) : (
-        <View className="rounded-[26px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
-          <Text className="text-[17px] font-extrabold text-ink dark:text-slate-100">Start an activity</Text>
-          <Text className="mt-1 text-[11px] leading-[17px] text-slate-500 dark:text-slate-400">Search the activity list, then start a timer. Route activities ask for location permission.</Text>
-          <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={muted} className="mt-3 h-[46px] rounded-[16px] border border-[#dfe7d9] bg-[#fbfdf9] px-3 text-ink dark:border-[#2b3a2d] dark:bg-[#10130f] dark:text-slate-100" accessibilityLabel="Search activity types" />
+        <View className="rounded-[26px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
+          <Text className="text-[17px] font-extrabold text-ink dark:text-[#f3f7f0]">Start an activity</Text>
+          <Text className="mt-1 text-[11px] leading-[17px] text-slate-500 dark:text-[#9eafa2]">Search the activity list, then start a timer. Route activities ask for location permission.</Text>
+          <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={muted} className="mt-3 h-[46px] rounded-[16px] border border-[#dfe7d9] bg-[#fbfdf9] px-3 text-ink dark:border-[#2a3b30] dark:bg-[#07110d] dark:text-[#f3f7f0]" accessibilityLabel="Search activity types" />
           <View style={styles.kindList}>
             {visibleActivities.map((item) => {
               const selected = kind === item.name
               return (
-                <Pressable key={item.name} onPress={() => setKind(item.name)} className={`min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border px-3 ${selected ? 'border-accent-200 bg-[#f0f7d0]' : 'border-[#e4e9df] bg-[#f0f3ec] dark:border-[#2b3a2d] dark:bg-[#10130f]'}`} accessibilityRole="radio" accessibilityState={{ selected }}>
-                  <Text className={`text-[10px] font-bold ${selected ? 'text-ink' : 'text-ink dark:text-slate-200'}`}>{item.name}</Text>
+                <Pressable key={item.name} onPress={() => setKind(item.name)} className={`min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border px-3 ${selected ? 'border-accent-200 bg-[#f0f7d0]' : 'border-[#e4e9df] bg-[#f0f3ec] dark:border-[#2a3b30] dark:bg-[#07110d]'}`} accessibilityRole="radio" accessibilityState={{ selected }}>
+                  <Text className={`text-[10px] font-bold ${selected ? 'text-ink' : 'text-ink dark:text-[#dce8dd]'}`}>{item.name}</Text>
                   {selected && <Ionicons name="checkmark-circle" size={16} color={ink} />}
                 </Pressable>
               )
@@ -117,7 +117,7 @@ export function ActivityScreen({
             <Ionicons name={activityTracksRoute(kind) ? 'navigate' : 'time-outline'} size={18} color={ink} />
             <Text style={styles.startButtonText}>Start {kind.toLowerCase()}</Text>
           </Pressable>
-          <Text className="mt-3 text-[10px] leading-[15px] text-slate-500 dark:text-slate-400">{activityTracksRoute(kind) ? 'Background location permission keeps your route recording while the screen is locked.' : 'This activity records time only and does not request location access.'} You can stop tracking at any time.</Text>
+          <Text className="mt-3 text-[10px] leading-[15px] text-slate-500 dark:text-[#9eafa2]">{activityTracksRoute(kind) ? 'Background location permission keeps your route recording while the screen is locked.' : 'This activity records time only and does not request location access.'} You can stop tracking at any time.</Text>
         </View>
       )}
 
@@ -126,7 +126,7 @@ export function ActivityScreen({
         <Text style={styles.historyCount}>{store.history.length}</Text>
       </View>
       {store.history.length === 0 ? (
-        <View className="rounded-[20px] border border-[#dfe7d9] bg-white p-4 dark:border-[#2b3a2d] dark:bg-[#18221a]"><Text className="text-[11px] text-slate-500 dark:text-slate-400">Your completed activities will show up here.</Text></View>
+        <View className="rounded-[20px] border border-[#dfe7d9] bg-white p-4 dark:border-[#2a3b30] dark:bg-[#132018]"><Text className="text-[11px] text-slate-500 dark:text-[#9eafa2]">Your completed activities will show up here.</Text></View>
       ) : store.history.map((activity) => (
         <View key={activity.id} style={styles.historyCard}>
           <View style={styles.historyIcon}><Ionicons name={activityTracksRoute(activity.kind) ? 'navigate-outline' : 'fitness-outline'} size={18} color={ink} /></View>

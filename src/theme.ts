@@ -7,7 +7,7 @@ export const theme = {
     pink: '#ff8fa4',
     muted: '#73776d',
     line: '#dedfd7',
-    dark: '#10130f',
+    dark: '#07110d',
   },
   type: {
     caption: 10,

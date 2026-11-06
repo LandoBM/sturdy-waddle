@@ -67,7 +67,7 @@ const badgeOptions: IconName[] = ['leaf-outline', 'flame-outline', 'water-outlin
 
 function ClubBadgeView({ badge, size = 58 }: { badge: ClubBadge; size?: number }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2 }} className="items-center justify-center overflow-hidden border-2 border-white bg-accent-200 shadow-md dark:border-[#18221a]">
+    <View style={{ width: size, height: size, borderRadius: size / 2 }} className="items-center justify-center overflow-hidden border-2 border-white bg-accent-200 shadow-md dark:border-[#132018]">
       {badge.type === 'image'
         ? <Image source={{ uri: badge.value }} style={{ width: size, height: size }} />
         : <Ionicons name={badge.value as IconName} size={Math.round(size * 0.43)} color={colors.ink} />}
@@ -155,8 +155,8 @@ function ScreenHeader({ title, action, centerTitle = false, wordmark = false }: 
 
 function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]} className="min-h-[44px] justify-center rounded-full border-[#dfe7d9] bg-white px-4 dark:border-[#2b3a2d] dark:bg-[#18221a]">
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]} className="dark:text-slate-100">{label}</Text>
+    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]} className="min-h-[44px] justify-center rounded-full border-[#dfe7d9] bg-white px-4 dark:border-[#2a3b30] dark:bg-[#132018]">
+      <Text style={[styles.chipText, selected && styles.chipTextSelected]} className="dark:text-[#f3f7f0]">{label}</Text>
     </Pressable>
   )
 }
@@ -187,17 +187,17 @@ function SectionTitle({ title, action, onPress }: { title: string; action?: stri
 
 function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number; joined: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[26px] bg-white shadow-lg dark:bg-[#18221a]">
+    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[26px] bg-white shadow-lg dark:bg-[#132018]">
       <Image source={{ uri: club.image }} style={styles.clubImage} />
       <View style={styles.clubImageShade} />
       <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{club.category.toUpperCase()}</Text></View>
       {joined && <View style={styles.joinedBadge}><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
       <View className="p-4">
-        <Text className="mb-1 text-[19px] font-extrabold text-ink dark:text-slate-100">{club.name}</Text>
-        <Text className="text-xs leading-[18px] text-slate-500 dark:text-slate-400" numberOfLines={2}>{club.mission}</Text>
+        <Text className="mb-1 text-[19px] font-extrabold text-ink dark:text-[#f3f7f0]">{club.name}</Text>
+        <Text className="text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]" numberOfLines={2}>{club.mission}</Text>
         <View className="mt-3 flex-row justify-between">
-          <Text className="text-[10px] font-semibold text-slate-500 dark:text-slate-400"><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
-          <Text className="text-[10px] font-semibold text-slate-500 dark:text-slate-400"><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
+          <Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]"><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
+          <Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]"><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
         </View>
       </View>
     </Pressable>
@@ -206,7 +206,7 @@ function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number;
 
 function TripCard({ trip, onPress, reserved }: { trip: Trip; onPress: () => void; reserved: boolean }) {
   return (
-    <Pressable onPress={onPress} className="mb-2 flex-row items-center gap-3 rounded-[22px] border border-[#dfe7d9] bg-white p-2.5 shadow-sm dark:border-[#2b3a2d] dark:bg-[#18221a]">
+    <Pressable onPress={onPress} className="mb-2 flex-row items-center gap-3 rounded-[22px] border border-[#dfe7d9] bg-white p-2.5 shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]">
       <Image source={{ uri: trip.image }} style={styles.tripImage} />
       <View style={styles.tripInfo}>
         <View style={styles.tripTopLine}>
@@ -297,26 +297,26 @@ function PostCard({
   onComments: () => void
 }) {
   return (
-    <View className="mb-4 rounded-[26px] border-0 bg-white p-4 shadow-lg dark:bg-[#18221a]">
+    <View className="mb-4 rounded-[26px] border-0 bg-white p-4 shadow-lg dark:bg-[#132018]">
       <View className="mb-4 flex-row items-center gap-2.5">
         <Avatar name={post.handle} size={40} photoUri={post.mine ? photoUri : null} />
         <View className="flex-1">
-          <Text className="text-xs font-extrabold text-ink dark:text-slate-100">@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
-          <Text className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{post.club ? `${post.club} · ` : ''}{post.time}</Text>
+          <Text className="text-xs font-extrabold text-ink dark:text-[#f3f7f0]">@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
+          <Text className="mt-0.5 text-[10px] text-slate-500 dark:text-[#9eafa2]">{post.club ? `${post.club} · ` : ''}{post.time}</Text>
         </View>
         <Pressable accessibilityLabel="More post options" hitSlop={8} className="h-11 w-11 items-center justify-center"><AppIcon name="ellipsis-horizontal" color={colors.muted} /></Pressable>
       </View>
-      {!!post.text && <Text className="mb-3.5 text-[15px] font-medium leading-[22px] text-ink dark:text-slate-100">{post.text}</Text>}
-      {!!post.image && <Image source={{ uri: post.image }} className="h-[230px] w-full rounded-[15px] bg-slate-200 dark:bg-slate-800" />}
-      {!!post.location && <Text className="mt-2 flex-row items-center text-xs text-slate-500 dark:text-slate-400"><AppIcon name="location-outline" size={14} color={colors.muted} />  {post.location}</Text>}
-      <View className="mt-4 flex-row items-center gap-5 border-t border-[#edf0e7] pt-3 dark:border-[#2a382c]">
+      {!!post.text && <Text className="mb-3.5 text-[15px] font-medium leading-[22px] text-ink dark:text-[#f3f7f0]">{post.text}</Text>}
+      {!!post.image && <Image source={{ uri: post.image }} className="h-[230px] w-full rounded-[15px] bg-slate-200 dark:bg-[#1b2c22]" />}
+      {!!post.location && <Text className="mt-2 flex-row items-center text-xs text-slate-500 dark:text-[#9eafa2]"><AppIcon name="location-outline" size={14} color={colors.muted} />  {post.location}</Text>}
+      <View className="mt-4 flex-row items-center gap-5 border-t border-[#edf0e7] pt-3 dark:border-[#294032]">
         <Pressable onPress={onLike} className="min-h-[44px] flex-row items-center gap-1.5 px-1" accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike post' : 'Like post'}>
           <AppIcon name={post.liked ? 'heart' : 'heart-outline'} color={post.liked ? '#e9516c' : colors.ink} />
-          <Text className="text-xs font-semibold text-ink dark:text-slate-200">{post.likes}</Text>
+          <Text className="text-xs font-semibold text-ink dark:text-[#dce8dd]">{post.likes}</Text>
         </Pressable>
         <Pressable onPress={onComments} className="min-h-[44px] flex-row items-center gap-1.5 px-1" accessibilityLabel="View comments">
           <AppIcon name="chatbubble-outline" />
-          <Text className="text-xs font-semibold text-ink dark:text-slate-200">{post.comments.length}</Text>
+          <Text className="text-xs font-semibold text-ink dark:text-[#dce8dd]">{post.comments.length}</Text>
         </Pressable>
         <View className="flex-1" />
         <Pressable onPress={onSave} className="min-h-[44px] w-11 items-center justify-center" accessibilityLabel={post.saved ? 'Unsave post' : 'Save post'}>
@@ -325,7 +325,7 @@ function PostCard({
       </View>
       {!!post.comments.length && (
         <Pressable onPress={onComments} className="mt-2.5">
-          <Text className="text-[11px] leading-4 text-ink dark:text-slate-300" numberOfLines={2}>
+          <Text className="text-[11px] leading-4 text-ink dark:text-[#c6d5c8]" numberOfLines={2}>
             <Text className="font-extrabold">@{post.comments[post.comments.length - 1].handle} </Text>
             {post.comments[post.comments.length - 1].text}
           </Text>
@@ -1088,13 +1088,13 @@ export default function NativeApp() {
   }
 
   const renderHome = () => (
-    <ScrollView style={styles.clubsScreen} className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.clubsScreen} className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
         <Pressable style={styles.roundAction} onPress={() => setTab('profile')} accessibilityLabel="Open profile">
           <AppIcon name="person-outline" />
         </Pressable>
       } />
-      <View className="mb-2 h-[50px] flex-row items-center gap-2 rounded-[20px] border border-[#dfe7d9] bg-white px-3 shadow-sm dark:border-[#2b3a2d] dark:bg-[#18221a]">
+      <View className="mb-2 h-[50px] flex-row items-center gap-2 rounded-[20px] border border-[#dfe7d9] bg-white px-3 shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]">
         <AppIcon name="search-outline" color={colors.muted} />
         <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={colors.muted} style={styles.searchInput} returnKeyType="search" />
       </View>
@@ -1130,11 +1130,11 @@ export default function NativeApp() {
           <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Searching…' : 'Search'}</Text>
         </Pressable>
       </View>
-      <Pressable className="mb-3 mt-[-5px] min-h-[44px] flex-row items-center justify-center gap-2 rounded-[16px] border border-[#dfe7d9] bg-white dark:border-[#2b3a2d] dark:bg-[#18221a]" onPress={findNearbyActivities} disabled={locatingClubs}>
+      <Pressable className="mb-3 mt-[-5px] min-h-[44px] flex-row items-center justify-center gap-2 rounded-[16px] border border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={findNearbyActivities} disabled={locatingClubs}>
         <AppIcon name="navigate-outline" color={colors.blue} />
         <Text style={styles.nearMeText}>{locatingClubs ? 'Finding your location…' : 'Find activities near me'}</Text>
       </Pressable>
-      <View className="mb-3 flex-row items-center gap-2 rounded-[17px] border border-accent-200 bg-[#f0f7d0] px-3 py-3 dark:border-[#46552d] dark:bg-[#1b2919]">
+      <View className="mb-3 flex-row items-center gap-2 rounded-[17px] border border-accent-200 bg-[#f0f7d0] px-3 py-3 dark:border-[#4b6138] dark:bg-[#16281c]">
         <AppIcon name="navigate-outline" color={colors.ink} />
         <Text style={styles.locationBannerText}>{locationLabel}<Text style={styles.mutedText}> · {nearbyPlaces.length} places found</Text></Text>
       </View>
@@ -1206,9 +1206,9 @@ export default function NativeApp() {
   )
 
   const renderSchedule = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4">
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Schedule" />
-      <View className="mb-3 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
+      <View className="mb-3 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
         <View style={styles.weekCalendarHeader}>
           <Pressable onPress={() => moveScheduleWeek(-1)} accessibilityLabel="Previous week" style={styles.weekArrow}>
             <AppIcon name="chevron-back" size={17} />
@@ -1241,7 +1241,7 @@ export default function NativeApp() {
           })}
         </View>
       </View>
-      <View className="mb-4 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
+      <View className="mb-4 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
         <View style={styles.fitnessRingsHeader}>
           <View>
             <Text style={styles.fitnessRingsTitle}>Today's movement</Text>
@@ -1262,7 +1262,7 @@ export default function NativeApp() {
         <Text style={styles.highlightTitle}>{scheduleTrips[0]?.title ?? 'Make a plan outdoors'}</Text>
         <Text style={styles.highlightBody}>{scheduleTrips[0] ? `${scheduleTrips[0].shortDay}, ${scheduleTrips[0].shortDate} · ${scheduleTrips[0].time}` : 'Explore clubs and add an event to your schedule.'}</Text>
       </View>
-      <View className="mb-4 rounded-[23px] border border-accent-200 bg-[#eef6d2] p-3 shadow-md dark:border-[#46552d] dark:bg-[#1b2919]">
+      <View className="mb-4 rounded-[23px] border border-accent-200 bg-[#eef6d2] p-3 shadow-md dark:border-[#4b6138] dark:bg-[#16281c]">
         <View style={styles.scheduleTrackerHeader}>
           <View style={styles.scheduleTrackerIcon}><AppIcon name="fitness-outline" size={20} /></View>
           <View style={styles.scheduleTrackerCopy}>
@@ -1306,7 +1306,7 @@ export default function NativeApp() {
 
   const renderFeed = () => (
     <ScrollView
-      className="flex-1 bg-[#e9eee4] dark:bg-[#0b100c]"
+      className="flex-1 bg-[#e9eee4] dark:bg-[#050c08]"
       contentContainerClassName="px-[18px] pb-8 pt-6"
       refreshControl={
         <RefreshControl
@@ -1342,11 +1342,11 @@ export default function NativeApp() {
   )
 
   const renderExplore = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4">
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Explore" />
-      <View className="mb-2 rounded-[24px] border border-accent-200 bg-[#eef6d2] p-5 dark:border-[#46552d] dark:bg-[#1b2919]">
-        <Text className="text-[25px] font-extrabold tracking-[-0.8px] text-ink dark:text-slate-100">A little more outside.</Text>
-        <Text className="mt-1 text-[13px] leading-[19px] text-slate-600 dark:text-slate-400">Find your next favorite place, activity, or crew.</Text>
+      <View className="mb-2 rounded-[24px] border border-accent-200 bg-[#eef6d2] p-5 dark:border-[#4b6138] dark:bg-[#16281c]">
+        <Text className="text-[25px] font-extrabold tracking-[-0.8px] text-ink dark:text-[#f3f7f0]">A little more outside.</Text>
+        <Text className="mt-1 text-[13px] leading-[19px] text-slate-600 dark:text-[#9eafa2]">Find your next favorite place, activity, or crew.</Text>
       </View>
       <SectionTitle title="Upcoming near you" action="Schedule" onPress={() => setTab('schedule')} />
       {trips.slice(0, 3).map((trip) => <TripCard key={trip.id} trip={trip} reserved={reserved.includes(trip.id)} onPress={() => openTrip(trip)} />)}
@@ -1366,7 +1366,7 @@ export default function NativeApp() {
   )
 
   const renderProfile = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4">
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title={accountHandle} centerTitle action={
         <View style={styles.profileHeaderActions}>
           <Pressable
@@ -1387,21 +1387,21 @@ export default function NativeApp() {
           </Pressable>
         </View>
       } />
-      <View className="rounded-[28px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
+      <View className="rounded-[28px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
         <View className="flex-row items-center">
           <Avatar name={accountUsername} size={82} photoUri={profileAvatarUrl} />
           <View className="ml-4 flex-1">
-            <Text className="text-[20px] font-extrabold text-ink dark:text-slate-100">{profileName || accountHandle}</Text>
+            <Text className="text-[20px] font-extrabold text-ink dark:text-[#f3f7f0]">{profileName || accountHandle}</Text>
             <View className="mt-3 flex-row justify-between pr-2">
-              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Clubs</Text></View>
-              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Events</Text></View>
-              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-slate-100">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Posts</Text></View>
+              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Clubs</Text></View>
+              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Events</Text></View>
+              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Posts</Text></View>
             </View>
           </View>
         </View>
-        <Text className="mt-4 text-xs leading-[18px] text-slate-500 dark:text-slate-400">{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
-        {!!joined.length && <View className="mt-4 border-t border-[#edf0e7] pt-4 dark:border-[#2a382c]">
-          <Text className="mb-3 text-[10px] font-extrabold uppercase tracking-[1px] text-slate-500 dark:text-slate-400">Club badges</Text>
+        <Text className="mt-4 text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]">{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
+        {!!joined.length && <View className="mt-4 border-t border-[#edf0e7] pt-4 dark:border-[#294032]">
+          <Text className="mb-3 text-[10px] font-extrabold uppercase tracking-[1px] text-slate-500 dark:text-[#9eafa2]">Club badges</Text>
           <View className="flex-row flex-wrap gap-3">
             {joined.map((id, index) => {
               const club = clubById(id)
@@ -1417,7 +1417,7 @@ export default function NativeApp() {
         </View>
       </View>
       <SectionTitle title="Recently posted" />
-      {!myPosts.length && <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-6 text-center text-xs text-slate-500 dark:border-[#46552d] dark:bg-[#18221a] dark:text-slate-400">Your recent posts will appear here.</Text>}
+      {!myPosts.length && <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-6 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your recent posts will appear here.</Text>}
       {myPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} />)}
     </ScrollView>
   )
@@ -1582,13 +1582,13 @@ export default function NativeApp() {
           <ScrollView contentContainerStyle={styles.modalPadding}>
             <Text style={styles.modalTitle}>{selectedManagedClub.name}</Text>
             {!!(selectedManagedClub.activity || selectedManagedClub.location) && <Text style={styles.modalSub}>{[selectedManagedClub.activity, selectedManagedClub.location].filter(Boolean).join(' · ')}</Text>}
-            <View className="my-4 rounded-[22px] border border-accent-200 bg-[#f0f7d0] p-4 dark:border-[#46552d] dark:bg-[#1b2919]">
-              <Text className="text-xs font-extrabold text-ink dark:text-slate-100">Club badge</Text>
-              <Text className="mt-1 text-[10px] leading-[15px] text-slate-600 dark:text-slate-400">Choose a badge for your club page or import your own image.</Text>
+            <View className="my-4 rounded-[22px] border border-accent-200 bg-[#f0f7d0] p-4 dark:border-[#4b6138] dark:bg-[#16281c]">
+              <Text className="text-xs font-extrabold text-ink dark:text-[#f3f7f0]">Club badge</Text>
+              <Text className="mt-1 text-[10px] leading-[15px] text-slate-600 dark:text-[#9eafa2]">Choose a badge for your club page or import your own image.</Text>
               <View className="mt-3 flex-row items-center gap-3">
                 <ClubBadgeView badge={badgeForClub(selectedManagedClub.id)} size={52} />
                 <View className="flex-1 flex-row flex-wrap gap-2">
-                  {badgeOptions.map((badge) => <Pressable key={badge} onPress={() => setClubBadges((current) => ({ ...current, [selectedManagedClub.id]: { type: 'icon', value: badge } }))} className="h-10 w-10 items-center justify-center rounded-full border border-white bg-white dark:bg-[#18221a]" accessibilityLabel={`Use ${badge} badge`}><Ionicons name={badge} size={18} color={colors.ink} /></Pressable>)}
+                  {badgeOptions.map((badge) => <Pressable key={badge} onPress={() => setClubBadges((current) => ({ ...current, [selectedManagedClub.id]: { type: 'icon', value: badge } }))} className="h-10 w-10 items-center justify-center rounded-full border border-white bg-white dark:bg-[#132018]" accessibilityLabel={`Use ${badge} badge`}><Ionicons name={badge} size={18} color={colors.ink} /></Pressable>)}
                   <Pressable onPress={() => { void importClubBadge(selectedManagedClub.id) }} className="h-10 flex-row items-center justify-center gap-1 rounded-full border border-ink bg-ink px-3" accessibilityRole="button"><Ionicons name="images-outline" size={15} color={colors.white} /><Text className="text-[10px] font-extrabold text-white">Import</Text></Pressable>
                 </View>
               </View>
