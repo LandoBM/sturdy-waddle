@@ -609,7 +609,6 @@ export default function NativeApp() {
     })
   }
   const commentsPost = posts.find((post) => post.id === commentsPostId) ?? null
-  const savedPosts = posts.filter((post) => post.saved)
   const myPosts = posts.filter((post) => post.mine)
   const activeDuration = activityStore.active
     ? activityStore.active.elapsedSeconds + (
@@ -1396,18 +1395,8 @@ export default function NativeApp() {
           </Pressable>
         </View>
       </View>
-      <SectionTitle title="Your clubs" />
-      {joined.map((id) => {
-        const club = clubById(id)
-        return <Pressable key={id} style={styles.simpleRow} onPress={() => setSelectedClub(club)}>
-          <Avatar name={club.name} size={42} />
-          <View style={styles.simpleRowCopy}><Text style={styles.simpleRowTitle}>{club.name}</Text><Text style={styles.simpleRowSub}>{club.category} · {club.members.toLocaleString()} members</Text></View>
-          <AppIcon name="chevron-forward" color={colors.muted} />
-        </Pressable>
-      })}
-      <SectionTitle title="Saved posts" />
-      {savedPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} />)}
-      {myPosts.length > 0 && <SectionTitle title="Your posts" />}
+      <SectionTitle title="Recently posted" />
+      {!myPosts.length && <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-6 text-center text-xs text-slate-500 dark:border-[#46552d] dark:bg-[#18221a] dark:text-slate-400">Your recent posts will appear here.</Text>}
       {myPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} />)}
     </ScrollView>
   )
@@ -1606,11 +1595,9 @@ export default function NativeApp() {
       <Modal visible={editingProfile} animationType="slide" onRequestClose={() => setEditingProfile(false)}>
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <View style={styles.sheetHeader}>
-            <Pressable onPress={() => setEditingProfile(false)} accessibilityLabel="Cancel profile edits"><Text style={styles.cancelText}>Cancel</Text></Pressable>
+            <View style={{ width: 52 }} />
             <Text style={styles.sheetTitle}>Profile settings</Text>
-            <Pressable onPress={() => { void saveProfile() }} disabled={savingProfile}>
-              <Text style={[styles.profileSaveText, savingProfile && styles.disabledButton]}>{savingProfile ? 'Saving…' : 'Save'}</Text>
-            </Pressable>
+            <View style={{ width: 52 }} />
           </View>
           <ScrollView contentContainerStyle={styles.profileEditContent} keyboardShouldPersistTaps="handled">
             <View style={styles.profilePhotoEditor}>
@@ -1663,6 +1650,14 @@ export default function NativeApp() {
             <Text style={styles.profileCharacterCount}>{editBio.length}/280</Text>
             {!!profileError && <Text accessibilityRole="alert" style={styles.errorText}>{profileError}</Text>}
           </ScrollView>
+          <View className="flex-row gap-3 border-t border-[#dfe7d9] bg-[#f4f7f1] p-4 dark:border-[#2b3a2d] dark:bg-[#10130f]">
+            <Pressable onPress={() => setEditingProfile(false)} className="h-12 flex-1 items-center justify-center rounded-full border border-[#cbd8c5] bg-white dark:border-[#46552d] dark:bg-[#18221a]" accessibilityLabel="Cancel profile edits">
+              <Text className="text-sm font-extrabold text-ink dark:text-slate-100">Cancel</Text>
+            </Pressable>
+            <Pressable onPress={() => { void saveProfile() }} disabled={savingProfile} className="h-12 flex-1 items-center justify-center rounded-full bg-accent-200" accessibilityLabel="Save profile edits">
+              <Text className={`text-sm font-extrabold text-ink ${savingProfile ? 'opacity-50' : ''}`}>{savingProfile ? 'Saving…' : 'Save'}</Text>
+            </Pressable>
+          </View>
         </SafeAreaView>
       </Modal>
 
