@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Pacifico_400Regular } from '@expo-google-fonts/pacifico'
 import * as ImagePicker from 'expo-image-picker'
+import { Blob as ExpoBlob } from 'expo-blob'
 import * as Location from 'expo-location'
 import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
@@ -894,7 +895,7 @@ export default function NativeApp() {
       if (avatarChanged && editAvatarUri) {
         const photoResponse = await fetch(editAvatarUri)
         if (!photoResponse.ok) throw new Error('Could not read the selected photo. Choose it again and retry.')
-        const photo = await photoResponse.blob()
+        const photo = new ExpoBlob([await photoResponse.arrayBuffer()], { type: editAvatarMimeType })
         if (photo.size > 5 * 1024 * 1024) throw new Error('Choose a photo smaller than 5 MB.')
         const extension = editAvatarMimeType === 'image/png' ? 'png' : editAvatarMimeType === 'image/webp' ? 'webp' : 'jpg'
         const newAvatarPath = `${session.user.id}/avatar-${Date.now()}.${extension}`
