@@ -187,17 +187,17 @@ function SectionTitle({ title, action, onPress }: { title: string; action?: stri
 
 function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number; joined: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[26px] bg-white shadow-lg dark:bg-[#132018]">
+    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[28px] border border-[#dfe7d9] bg-white shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
       <Image source={{ uri: club.image }} style={styles.clubImage} />
       <View style={styles.clubImageShade} />
-      <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{club.category.toUpperCase()}</Text></View>
-      {joined && <View style={styles.joinedBadge}><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
+      <View style={styles.categoryBadge} className="rounded-full border border-white/70 bg-white/95 px-3 py-1.5"><Text style={styles.categoryBadgeText} className="tracking-[0.8px]">{club.category.toUpperCase()}</Text></View>
+      {joined && <View style={styles.joinedBadge} className="rounded-full border border-accent-300 bg-accent-200 px-2.5 py-1.5"><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
       <View className="p-4">
         <Text className="mb-1 text-[19px] font-extrabold text-ink dark:text-[#f3f7f0]">{club.name}</Text>
         <Text className="text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]" numberOfLines={2}>{club.mission}</Text>
         <View className="mt-3 flex-row justify-between">
-          <Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]"><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
-          <Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]"><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
+          <View className="flex-row items-center gap-1.5"><AppIcon name="people-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{club.members.toLocaleString()} members</Text></View>
+          <View className="flex-row items-center gap-1.5"><AppIcon name="location-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{miles} mi</Text></View>
         </View>
       </View>
     </Pressable>
@@ -1088,15 +1088,19 @@ export default function NativeApp() {
   }
 
   const renderHome = () => (
-    <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
+    <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-8 pt-5" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
-        <Pressable style={styles.roundAction} onPress={() => setTab('profile')} accessibilityLabel="Open profile">
+        <Pressable style={styles.roundAction} className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => setTab('profile')} accessibilityLabel="Open profile">
           <AppIcon name="person-outline" />
         </Pressable>
       } />
-      <View className="mb-2 h-[50px] flex-row items-center gap-2 rounded-[20px] border border-[#dfe7d9] bg-white px-3 shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]">
+      <View className="mb-3 rounded-[24px] border border-accent-200 bg-[#f0f7d0] p-4 shadow-sm dark:border-[#4b6138] dark:bg-[#16281c]">
+        <Text className="text-[18px] font-extrabold tracking-[-0.3px] text-ink dark:text-[#f3f7f0]">Move with your people.</Text>
+        <Text className="mt-1 text-[12px] leading-[18px] text-slate-600 dark:text-[#9eafa2]">Discover clubs, local activities, and communities that fit your rhythm.</Text>
+      </View>
+      <View className="mb-3 h-[52px] flex-row items-center gap-2 rounded-[20px] border border-[#dfe7d9] bg-white px-3 shadow-md dark:border-[#2a3b30] dark:bg-[#132018]">
         <AppIcon name="search-outline" color={colors.muted} />
-        <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={colors.muted} style={styles.searchInput} returnKeyType="search" />
+        <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={colors.muted} style={styles.searchInput} className="text-ink dark:text-[#f3f7f0]" returnKeyType="search" />
       </View>
       <View style={styles.zipRow}>
         <Pressable
@@ -1126,17 +1130,17 @@ export default function NativeApp() {
             accessibilityLabel="Postal code"
           />
         </View>
-        <Pressable className="min-h-[44px] min-w-[78px] items-center justify-center rounded-[15px] bg-ink px-4" onPress={() => {
+        <Pressable className="min-h-[46px] min-w-[82px] items-center justify-center rounded-[16px] bg-ink px-4 shadow-sm" onPress={() => {
           void searchByPostalCode()
         }} disabled={searchingPostalCode}>
           <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Searching…' : 'Search'}</Text>
         </Pressable>
       </View>
-      <Pressable className="mb-3 mt-[-5px] min-h-[44px] flex-row items-center justify-center gap-2 rounded-[16px] border border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={findNearbyActivities} disabled={locatingClubs}>
+      <Pressable className="mb-4 min-h-[46px] flex-row items-center justify-center gap-2 rounded-[16px] border border-[#dfe7d9] bg-white shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]" onPress={findNearbyActivities} disabled={locatingClubs}>
         <AppIcon name="navigate-outline" color={colors.blue} />
         <Text style={styles.nearMeText}>{locatingClubs ? 'Finding your location…' : 'Find activities near me'}</Text>
       </Pressable>
-      <View className="mb-3 flex-row items-center gap-2 rounded-[17px] border border-accent-200 bg-[#f0f7d0] px-3 py-3 dark:border-[#4b6138] dark:bg-[#16281c]">
+      <View className="mb-4 flex-row items-center gap-2 rounded-[18px] border border-accent-200 bg-[#f0f7d0] px-3.5 py-3.5 shadow-sm dark:border-[#4b6138] dark:bg-[#16281c]">
         <AppIcon name="navigate-outline" color={colors.ink} />
         <Text style={styles.locationBannerText}>{locationLabel}<Text style={styles.mutedText}> · {nearbyPlaces.length} places found</Text></Text>
       </View>
@@ -1144,8 +1148,8 @@ export default function NativeApp() {
       <Text style={styles.nearbyAttribution}>Ideas for your selected location; nearby venues are listed below when map data is available.</Text>
       <View style={styles.activityIdeaList}>
         {activityIdeasForCountry(countryCode).map((idea) => (
-          <View key={idea} style={styles.activityIdeaChip}>
-            <Text style={styles.activityIdeaText}>{idea}</Text>
+          <View key={idea} style={styles.activityIdeaChip} className="rounded-full border border-[#dfe7d9] bg-white px-3 py-2 dark:border-[#2a3b30] dark:bg-[#132018]">
+            <Text style={styles.activityIdeaText} className="dark:text-[#d9ff5a]">{idea}</Text>
           </View>
         ))}
       </View>
