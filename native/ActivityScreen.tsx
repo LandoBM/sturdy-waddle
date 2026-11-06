@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import * as MediaLibrary from 'expo-media-library'
+import { useMemo, useRef, useState, type Ref } from 'react'
+import Svg, { Circle, Polyline } from 'react-native-svg'
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
 import { activityCatalog, activityTracksRoute } from './activityCatalog'
 import { RouteMap } from './RouteMap'
@@ -18,6 +20,55 @@ const muted = '#73776d'
 const lime = '#d9ff5a'
 const line = '#dedfd7'
 const white = '#ffffff'
+const { captureRef } = require('react-native-view-shot') as {
+  captureRef: (target: any, options: Record<string, unknown>) => Promise<string>
+}
+
+function routePolyline(points: RecordedActivity['points'], width: number, height: number) {
+  if (points.length < 2) return ''
+  const latitudes = points.map((point) => point.latitude)
+  const longitudes = points.map((point) => point.longitude)
+  const minLat = Math.min(...latitudes)
+  const maxLat = Math.max(...latitudes)
+  const minLon = Math.min(...longitudes)
+  const maxLon = Math.max(...longitudes)
+  const latSpan = Math.max(maxLat - minLat, 0.0001)
+  const lonSpan = Math.max(maxLon - minLon, 0.0001)
+  const padding = 26
+  const scale = Math.min((width - padding * 2) / lonSpan, (height - padding * 2) / latSpan)
+  const offsetX = (width - lonSpan * scale) / 2
+  const offsetY = (height - latSpan * scale) / 2
+  return points.map((point) => `${offsetX + (point.longitude - minLon) * scale},${height - offsetY - (point.latitude - minLat) * scale}`).join(' ')
+}
+
+function RouteExportCard({ activity, captureTarget }: { activity: RecordedActivity; captureTarget: Ref<any> }) {
+  const { width } = useWindowDimensions()
+  const cardWidth = Math.min(width - 36, 360)
+  const routeHeight = 230
+  const polyline = routePolyline(activity.points, cardWidth, routeHeight)
+  const firstPoint = activity.points[0]
+  const lastPoint = activity.points[activity.points.length - 1]
+  return (
+    <View ref={captureTarget} collapsable={false} style={[styles.exportCard, { width: cardWidth }]}>
+      <View style={styles.exportHeader}>
+        <Text style={styles.exportLogo}>FitHive</Text>
+        <Text style={styles.exportActivity}>{activity.kind.toUpperCase()}</Text>
+      </View>
+      <Svg width={cardWidth} height={routeHeight} viewBox={`0 0 ${cardWidth} ${routeHeight}`}>
+        <Circle cx={12} cy={routeHeight - 14} r={5} fill="#a447e8" />
+        {polyline ? <Polyline points={polyline} fill="none" stroke="#a447e8" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" /> : null}
+        <Circle cx={cardWidth - 12} cy={14} r={5} fill="#ff6c48" />
+      </Svg>
+      <View style={styles.exportStats}>
+        <View><Text style={styles.exportValue}>{formatActivityDistance(activity.distanceMeters)} mi</Text><Text style={styles.exportLabel}>DISTANCE</Text></View>
+        <View><Text style={styles.exportValue}>{formatActivityDuration(activity.elapsedSeconds)}</Text><Text style={styles.exportLabel}>TIME</Text></View>
+        <View><Text style={styles.exportValue}>{formatPace(calculatePaceSecondsPerMile(activity.distanceMeters, activity.elapsedSeconds))}</Text><Text style={styles.exportLabel}>AVG PACE</Text></View>
+      </View>
+      <Text style={styles.exportDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
+      {!firstPoint || !lastPoint ? <Text style={styles.exportNoRoute}>No GPS path was recorded for this activity.</Text> : null}
+    </View>
+  )
+}
 
 function Metric({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
@@ -47,6 +98,8 @@ export function ActivityScreen({
 }) {
   const [kind, setKind] = useState<ActivityKind>('Hiking')
   const [activitySearch, setActivitySearch] = useState('')
+  const [selectedActivity, setSelectedActivity] = useState<RecordedActivity | null>(null)
+  const routeExportRef = useRef<any>(null)
   const active = store.active
   const visibleActivities = useMemo(
     () => activityCatalog
@@ -139,15 +192,48 @@ export function ActivityScreen({
       {store.history.length === 0 ? (
         <View className="rounded-[20px] border border-[#dfe7d9] bg-white p-4 dark:border-[#2a3b30] dark:bg-[#132018]"><Text className="text-[11px] text-slate-500 dark:text-[#9eafa2]">Your completed activities will show up here.</Text></View>
       ) : store.history.map((activity) => (
-        <View key={activity.id} style={styles.historyCard} className="border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]">
+        <Pressable key={activity.id} onPress={() => setSelectedActivity(activity)} style={styles.historyCard} className="border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" accessibilityRole="button" accessibilityLabel={`Open ${activity.kind} activity details`}>
           <View style={styles.historyIcon}><Ionicons name={activityTracksRoute(activity.kind) ? 'navigate-outline' : 'fitness-outline'} size={18} color={ink} /></View>
           <View style={styles.historyMain}>
             <Text style={styles.historyTitle} className="dark:text-[#f3f7f0]">{activity.kind}</Text>
             <Text style={styles.historyDate} className="dark:text-[#9eafa2]">{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString()}</Text>
             <Text style={styles.historyStats} className="dark:text-[#dce8dd]">{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
           </View>
-        </View>
+        </Pressable>
       ))}
+      <Modal visible={!!selectedActivity} animationType="slide" onRequestClose={() => setSelectedActivity(null)}>
+        <View style={styles.detailScreen}>
+          <View style={styles.detailHeader}>
+            <Pressable onPress={() => setSelectedActivity(null)} style={styles.closeButton} accessibilityLabel="Close activity details"><Ionicons name="chevron-back" size={22} color={ink} /></Pressable>
+            <Text style={styles.detailTitle}>Activity details</Text>
+            <View style={styles.closeButton} />
+          </View>
+          {selectedActivity ? (
+            <ScrollView contentContainerStyle={styles.detailContent}>
+              <RouteExportCard activity={selectedActivity} captureTarget={routeExportRef} />
+              <Pressable style={styles.saveRouteButton} onPress={async () => {
+                if (!routeExportRef.current) return
+                try {
+                  const permission = await MediaLibrary.requestPermissionsAsync()
+                  if (!permission.granted) {
+                    Alert.alert('Photo access needed', 'Allow FitHive to save your route card to your photo gallery.')
+                    return
+                  }
+                  const uri = await captureRef(routeExportRef.current, { format: 'png', quality: 1, result: 'tmpfile' })
+                  await MediaLibrary.createAssetAsync(uri)
+                  Alert.alert('Saved to Photos', 'Your FitHive route card is now in your photo gallery.')
+                } catch (error) {
+                  Alert.alert('Could not save route', error instanceof Error ? error.message : 'Please try again.')
+                }
+              }}>
+                <Ionicons name="download-outline" size={19} color={ink} />
+                <Text style={styles.saveRouteText}>Save transparent route card</Text>
+              </Pressable>
+              <Text style={styles.detailHint}>Your route card includes the path, FitHive branding, distance, time, and average pace.</Text>
+            </ScrollView>
+          ) : null}
+        </View>
+      </Modal>
     </ScrollView>
   )
 }
@@ -204,4 +290,21 @@ const styles = StyleSheet.create({
   historyTitle: { color: ink, fontWeight: '800', fontSize: 12 },
   historyDate: { color: muted, fontSize: 9, marginTop: 3 },
   historyStats: { color: ink, fontSize: 10, fontWeight: '700', marginTop: 5 },
+  detailScreen: { flex: 1, backgroundColor: '#f4f7f1' },
+  detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 15, paddingBottom: 10 },
+  closeButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e9eee4' },
+  detailTitle: { color: ink, fontSize: 16, fontWeight: '800' },
+  detailContent: { alignItems: 'center', paddingHorizontal: 18, paddingBottom: 32 },
+  exportCard: { backgroundColor: 'transparent', paddingTop: 16, paddingBottom: 13 },
+  exportHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
+  exportLogo: { color: ink, fontFamily: 'Pacifico_400Regular', fontSize: 27 },
+  exportActivity: { color: muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  exportStats: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, marginTop: -4 },
+  exportValue: { color: ink, fontSize: 16, fontWeight: '800' },
+  exportLabel: { color: muted, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, marginTop: 3 },
+  exportDate: { color: muted, fontSize: 10, marginTop: 13, paddingHorizontal: 12 },
+  exportNoRoute: { color: muted, fontSize: 10, marginTop: 12, paddingHorizontal: 12 },
+  saveRouteButton: { minHeight: 52, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 26, backgroundColor: lime, marginTop: 18 },
+  saveRouteText: { color: ink, fontSize: 13, fontWeight: '800' },
+  detailHint: { color: muted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 12, paddingHorizontal: 20 },
 })

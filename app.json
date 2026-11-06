@@ -35,6 +35,13 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": "FitHive can access your photos when you choose to save a route card.",
+          "savePhotosPermission": "FitHive can save your route cards to your photo gallery."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "FitHive uses your location while you record a hike or run.",
