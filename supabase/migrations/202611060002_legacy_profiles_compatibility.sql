@@ -10,17 +10,51 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists avatar_url text;
 
-update public.profiles
-set display_name = coalesce(nullif(trim(display_name), ''), nullif(trim(name), ''), '')
-where display_name is null or trim(display_name) = '';
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'name'
+  ) then
+    execute $sql$
+      update public.profiles
+      set display_name = coalesce(nullif(trim(display_name), ''), nullif(trim(name), ''), '')
+      where display_name is null or trim(display_name) = ''
+    $sql$;
+  else
+    update public.profiles
+    set display_name = coalesce(display_name, '')
+    where display_name is null;
+  end if;
+end;
+$$;
 
-update public.profiles
-set owner_status = case lower(coalesce(status::text, ''))
-  when 'verified' then 'verified'
-  when 'pending' then 'pending'
-  else 'none'
-end
-where owner_status is null;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'status'
+  ) then
+    execute $sql$
+      update public.profiles
+      set owner_status = case lower(coalesce(status::text, ''))
+        when 'verified' then 'verified'
+        when 'pending' then 'pending'
+        else 'none'
+      end
+      where owner_status is null
+    $sql$;
+  else
+    update public.profiles
+    set owner_status = coalesce(owner_status, 'none')
+    where owner_status is null;
+  end if;
+end;
+$$;
 
 alter table public.profiles
   alter column display_name set default '';
