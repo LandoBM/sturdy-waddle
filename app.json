@@ -41,6 +41,7 @@
           "savePhotosPermission": "FitHive can save your route cards to your photo gallery."
         }
       ],
+      "expo-notifications",
       [
         "expo-location",
         {

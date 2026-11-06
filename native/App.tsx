@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as ImagePicker from 'expo-image-picker'
 import { Blob as ExpoBlob } from 'expo-blob'
 import * as Location from 'expo-location'
+import * as Notifications from 'expo-notifications'
 import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
 import { useColorScheme } from 'nativewind'
@@ -62,6 +63,24 @@ type IconName = ComponentProps<typeof Ionicons>['name']
 type OwnerStatus = 'none' | 'pending' | 'verified'
 type ClubBadge = { type: 'icon' | 'image'; value: string }
 type AppearancePreference = 'system' | 'light' | 'dark'
+type AppNotification = {
+  id: string
+  type: string
+  title: string
+  body: string
+  created_at: string
+  read_at: string | null
+}
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+})
 
 const badgeOptions: IconName[] = ['leaf-outline', 'flame-outline', 'water-outline', 'trail-sign-outline', 'sunny-outline']
 
@@ -322,6 +341,8 @@ export default function NativeApp() {
   const [followedHandles, setFollowedHandles] = useState<string[]>([])
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
+  const [notificationsVisible, setNotificationsVisible] = useState(false)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [accountSettingsError, setAccountSettingsError] = useState('')
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [appearancePreference, setAppearancePreference] = useState<AppearancePreference>('system')
@@ -513,6 +534,33 @@ export default function NativeApp() {
     })
     return () => { active = false }
   }, [session?.user.id, profileUsername, session?.user.user_metadata?.username, session?.user.email])
+
+  useEffect(() => {
+    const client = supabaseClient
+    if (!client || !session?.user.id || Platform.OS === 'web') return
+    const registerPushNotifications = async () => {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        })
+      }
+      const current = await Notifications.getPermissionsAsync()
+      const permission = current.status === 'granted' ? current : await Notifications.requestPermissionsAsync()
+      if (permission.status !== 'granted') return
+      const token = (await Notifications.getExpoPushTokenAsync()).data
+      const { error } = await client.from('push_tokens').upsert({
+        user_id: session.user.id,
+        expo_push_token: token,
+        platform: Platform.OS,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'expo_push_token' })
+      if (error) throw error
+    }
+    registerPushNotifications().catch(() => {
+      // Push registration is optional; the in-app notification center still works.
+    })
+  }, [session?.user.id])
 
   useEffect(() => {
     const client = supabaseClient
@@ -1118,6 +1166,29 @@ export default function NativeApp() {
       Alert.alert('Could not update follow', error instanceof Error ? error.message : 'Apply the social follows migration in Supabase, then try again.')
     }
   }
+  const loadNotifications = async () => {
+    if (!supabaseClient || !session?.user.id) return
+    const { data, error } = await supabaseClient.from('notifications')
+      .select('id,type,title,body,created_at,read_at')
+      .eq('recipient_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(40)
+    if (error) {
+      if (['PGRST205', '42P01'].includes(error.code ?? '')) return
+      throw error
+    }
+    setNotifications((data ?? []) as AppNotification[])
+  }
+  const openNotifications = () => {
+    setNotificationsVisible(true)
+    void loadNotifications().catch((error: unknown) => Alert.alert('Unable to load notifications', error instanceof Error ? error.message : 'Please try again.'))
+  }
+  const markNotificationRead = async (notification: AppNotification) => {
+    if (notification.read_at || !supabaseClient) return
+    const readAt = new Date().toISOString()
+    setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: readAt } : item))
+    await supabaseClient.from('notifications').update({ read_at: readAt }).eq('id', notification.id)
+  }
   const addComment = () => {
     const text = commentText.trim()
     if (!text || !commentsPostId) return
@@ -1430,7 +1501,11 @@ export default function NativeApp() {
       }
     >
       <ScreenHeader title="FitHive" centerTitle wordmark action={
-        <View className="w-[93px] items-end">
+        <View className="w-[104px] flex-row items-center justify-end gap-2">
+          <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-[#dfe7d9] bg-white shadow-md dark:border-[#2a3b30] dark:bg-[#132018]" onPress={openNotifications} accessibilityLabel="Open notifications">
+            <AppIcon name="notifications-outline" />
+            {!!notifications.some((notification) => !notification.read_at) && <View className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#e9516c] dark:border-[#132018]" />}
+          </Pressable>
           <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
             <AppIcon name="add" />
           </Pressable>
@@ -1612,6 +1687,31 @@ export default function NativeApp() {
             </View>
           </ScrollView>
         </SafeAreaView>}
+      </Modal>
+
+      <Modal visible={notificationsVisible} animationType="slide" onRequestClose={() => setNotificationsVisible(false)}>
+        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+          <View style={styles.sheetHeader}>
+            <Pressable onPress={() => setNotificationsVisible(false)} accessibilityLabel="Close notifications"><AppIcon name="close" /></Pressable>
+            <Text style={styles.sheetTitle}>Notifications</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView style={styles.commentsList} contentContainerStyle={styles.commentsContent}>
+            {!notifications.length && <Text style={styles.emptyText}>You’re all caught up.</Text>}
+            {notifications.map((notification) => (
+              <Pressable key={notification.id} onPress={() => { void markNotificationRead(notification) }} style={[styles.notificationRow, !notification.read_at && styles.notificationUnread]}>
+                <View style={styles.notificationIcon}><AppIcon name={notification.type === 'follow' ? 'person-add-outline' : 'sparkles-outline'} color={colors.ink} /></View>
+                <View style={styles.notificationCopy}>
+                  <Text style={styles.notificationTitle}>{notification.title}</Text>
+                  <Text style={styles.notificationBody}>{notification.body}</Text>
+                  <Text style={styles.notificationTime}>{new Date(notification.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</Text>
+                </View>
+                {!notification.read_at && <View style={styles.notificationDot} />}
+              </Pressable>
+            ))}
+          </ScrollView>
+          {renderBottomTabs((next) => { setNotificationsVisible(false); setTab(next) })}
+        </SafeAreaView>
       </Modal>
 
       <Modal visible={!!selectedTrip} animationType="slide" onRequestClose={() => setSelectedTrip(null)}>
@@ -2270,6 +2370,14 @@ const styles = StyleSheet.create({
   sheetTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   commentsList: { flex: 1 },
   commentsContent: { padding: 16, paddingBottom: 28 },
+  notificationRow: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, marginBottom: 8, borderRadius: 18, backgroundColor: colors.white },
+  notificationUnread: { borderWidth: 1, borderColor: '#d9e98b', backgroundColor: '#f5f9df' },
+  notificationIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.lime },
+  notificationCopy: { flex: 1 },
+  notificationTitle: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  notificationBody: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  notificationTime: { color: colors.muted, fontSize: 9, marginTop: 5 },
+  notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e9516c' },
   commentPostText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginBottom: 18 },
   commentRow: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', marginBottom: 13 },
   commentBubble: { flex: 1, backgroundColor: colors.white, borderRadius: 14, padding: 11, borderWidth: 1, borderColor: colors.line },
