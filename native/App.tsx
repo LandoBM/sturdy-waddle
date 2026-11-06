@@ -141,10 +141,10 @@ function AppIcon({ name, size = 20, color = colors.ink }: { name: IconName; size
 
 function ScreenHeader({ title, action, centerTitle = false, wordmark = false }: { title: string; action?: ReactNode; centerTitle?: boolean; wordmark?: boolean }) {
   return (
-    <View style={styles.screenHeader}>
+    <View style={styles.screenHeader} className="mb-5 flex-row items-end justify-between">
       {centerTitle && <View style={styles.screenHeaderSpacer} />}
       <View style={[styles.screenHeading, centerTitle && styles.screenHeadingCentered]}>
-        <Text style={[styles.screenTitle, centerTitle && styles.screenTitleCentered, wordmark && styles.screenWordmark]} numberOfLines={1} adjustsFontSizeToFit={centerTitle}>
+        <Text style={[styles.screenTitle, centerTitle && styles.screenTitleCentered, wordmark && styles.screenWordmark]} className="text-ink dark:text-[#f3f7f0]" numberOfLines={1} adjustsFontSizeToFit={centerTitle}>
           {title}
         </Text>
       </View>
@@ -179,8 +179,8 @@ function Avatar({ name, size = 42, photoUri }: { name: string; size?: number; ph
 function SectionTitle({ title, action, onPress }: { title: string; action?: string; onPress?: () => void }) {
   return (
     <View style={styles.sectionTitleRow}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {action && <Pressable onPress={onPress}><Text style={styles.textLink}>{action}</Text></Pressable>}
+      <Text style={styles.sectionTitle} className="text-ink dark:text-[#f3f7f0]">{title}</Text>
+      {action && <Pressable onPress={onPress} className="min-h-[44px] justify-center"><Text style={styles.textLink} className="text-ink dark:text-[#d9ff5a]">{action}</Text></Pressable>}
     </View>
   )
 }
@@ -210,12 +210,12 @@ function TripCard({ trip, onPress, reserved }: { trip: Trip; onPress: () => void
       <Image source={{ uri: trip.image }} style={styles.tripImage} />
       <View style={styles.tripInfo}>
         <View style={styles.tripTopLine}>
-          <Text style={styles.eyebrow}>{trip.shortDay.toUpperCase()} · {trip.shortDate}</Text>
+          <Text style={styles.eyebrow} className="dark:text-[#9eafa2]">{trip.shortDay.toUpperCase()} · {trip.shortDate}</Text>
           {reserved && <Text style={styles.reservedLabel}>RESERVED</Text>}
         </View>
-        <Text style={styles.tripName}>{trip.title}</Text>
-        <Text style={styles.tripMeta}>{trip.time} · {trip.location}</Text>
-        <Text style={styles.tripClub}>{trip.club}</Text>
+        <Text style={styles.tripName} className="dark:text-[#f3f7f0]">{trip.title}</Text>
+        <Text style={styles.tripMeta} className="dark:text-[#9eafa2]">{trip.time} · {trip.location}</Text>
+        <Text style={styles.tripClub} className="dark:text-[#9eafa2]">{trip.club}</Text>
       </View>
       <AppIcon name="chevron-forward" size={18} color={colors.muted} />
     </Pressable>
@@ -1101,6 +1101,7 @@ export default function NativeApp() {
       <View style={styles.zipRow}>
         <Pressable
           style={[styles.zipInputBox, styles.countryCodeBox]}
+          className="rounded-[16px] border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]"
           onPress={() => Alert.alert('Choose a country', 'Club search is available in these countries.', clubCountries.map(({ code, label }) => ({
             text: label,
             onPress: () => setCountryCode(code),
@@ -1108,10 +1109,10 @@ export default function NativeApp() {
           accessibilityRole="button"
           accessibilityLabel={`Country: ${selectedClubCountry.label}. Choose country`}
         >
-          <Text style={styles.countryCodeInput} numberOfLines={1}>{selectedClubCountry.label}</Text>
+          <Text style={styles.countryCodeInput} className="text-ink dark:text-[#f3f7f0]" numberOfLines={1}>{selectedClubCountry.label}</Text>
           <AppIcon name="chevron-down" color={colors.muted} size={14} />
         </Pressable>
-        <View style={styles.zipInputBox}>
+        <View style={styles.zipInputBox} className="rounded-[16px] border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]">
           <AppIcon name="location-outline" color={colors.muted} />
           <TextInput
             value={postalInput}
@@ -1121,6 +1122,7 @@ export default function NativeApp() {
             autoCapitalize="characters"
             maxLength={12}
             style={styles.zipInput}
+            className="text-ink dark:text-[#f3f7f0]"
             accessibilityLabel="Postal code"
           />
         </View>
@@ -1155,12 +1157,12 @@ export default function NativeApp() {
         <Text style={styles.emptyText}>No mapped activity spots found nearby yet. Try another postal code or use the activity ideas above.</Text>
       )}
       {nearbyPlaces.slice(0, 12).map((place) => (
-        <Pressable key={place.id} style={styles.nearbyPlaceCard} onPress={() => { void openNearbyPlace(place) }}>
+        <Pressable key={place.id} style={styles.nearbyPlaceCard} className="rounded-[20px] border-[#dfe7d9] bg-white shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => { void openNearbyPlace(place) }}>
           <View style={styles.nearbyPlaceIcon}><AppIcon name="fitness-outline" color={colors.ink} /></View>
           <View style={styles.nearbyPlaceCopy}>
-            <Text style={styles.nearbyPlaceName}>{place.name}</Text>
-            <Text style={styles.simpleRowSub}>{place.kind} · {place.miles.toFixed(1)} mi away</Text>
-            <Text style={styles.nearbyPlaceActivities}>{place.activities.join(' · ')}</Text>
+            <Text style={styles.nearbyPlaceName} className="dark:text-[#f3f7f0]">{place.name}</Text>
+            <Text style={styles.simpleRowSub} className="dark:text-[#9eafa2]">{place.kind} · {place.miles.toFixed(1)} mi away</Text>
+            <Text style={styles.nearbyPlaceActivities} className="dark:text-[#9eafa2]">{place.activities.join(' · ')}</Text>
           </View>
           <AppIcon name="open-outline" color={colors.muted} size={17} />
         </Pressable>
@@ -1173,11 +1175,11 @@ export default function NativeApp() {
       ))}
       {!!managedClubs.length && <SectionTitle title="Community clubs" />}
       {managedClubs.map((club) => (
-        <Pressable key={club.id} style={styles.simpleRow} onPress={() => setSelectedManagedClub(club)}>
+        <Pressable key={club.id} style={styles.simpleRow} className="rounded-[20px] border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => setSelectedManagedClub(club)}>
           <Avatar name={club.name} size={42} />
           <View style={styles.simpleRowCopy}>
-            <Text style={styles.simpleRowTitle}>{club.name}</Text>
-            <Text style={styles.simpleRowSub}>{[club.activity, club.location].filter(Boolean).join(' · ') || 'Community club'}</Text>
+            <Text style={styles.simpleRowTitle} className="dark:text-[#f3f7f0]">{club.name}</Text>
+            <Text style={styles.simpleRowSub} className="dark:text-[#9eafa2]">{[club.activity, club.location].filter(Boolean).join(' · ') || 'Community club'}</Text>
           </View>
           <AppIcon name="chevron-forward" color={colors.muted} />
         </Pressable>
@@ -1213,7 +1215,7 @@ export default function NativeApp() {
           <Pressable onPress={() => moveScheduleWeek(-1)} accessibilityLabel="Previous week" style={styles.weekArrow}>
             <AppIcon name="chevron-back" size={17} />
           </Pressable>
-          <Text style={styles.weekCalendarTitle}>
+          <Text style={styles.weekCalendarTitle} className="dark:text-[#f3f7f0]">
             {scheduleWeek[0].toLocaleDateString([], { month: 'long' })} {scheduleWeek[0].getDate()} – {scheduleWeek[6].toLocaleDateString([], { month: 'long' })} {scheduleWeek[6].getDate()}
           </Text>
           <Pressable onPress={() => moveScheduleWeek(1)} accessibilityLabel="Next week" style={styles.weekArrow}>
@@ -1229,12 +1231,13 @@ export default function NativeApp() {
                 key={dateKey(day)}
                 onPress={() => setSelectedScheduleDate(day)}
                 style={[styles.weekDay, selected && styles.weekDaySelected]}
+                className="dark:bg-[#0d1a12]"
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 accessibilityLabel={day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
               >
-                <Text style={[styles.weekDayName, selected && styles.weekDayTextSelected]}>{day.toLocaleDateString([], { weekday: 'short' })}</Text>
-                <Text style={[styles.weekDayNumber, selected && styles.weekDayTextSelected]}>{day.getDate()}</Text>
+                <Text style={[styles.weekDayName, selected && styles.weekDayTextSelected]} className="dark:text-[#9eafa2]">{day.toLocaleDateString([], { weekday: 'short' })}</Text>
+                <Text style={[styles.weekDayNumber, selected && styles.weekDayTextSelected]} className="dark:text-[#f3f7f0]">{day.getDate()}</Text>
                 {hasScheduledActivity && <View style={[styles.weekEventDot, selected && styles.weekEventDotSelected]} />}
               </Pressable>
             )
@@ -1244,8 +1247,8 @@ export default function NativeApp() {
       <View className="mb-4 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
         <View style={styles.fitnessRingsHeader}>
           <View>
-            <Text style={styles.fitnessRingsTitle}>Today's movement</Text>
-            <Text style={styles.fitnessRingsSub}>
+            <Text style={styles.fitnessRingsTitle} className="dark:text-[#f3f7f0]">Today's movement</Text>
+            <Text style={styles.fitnessRingsSub} className="dark:text-[#9eafa2]">
               {dailyFitnessMetrics ? 'Synced today' : healthProvider ? 'Open Settings to sync today’s movement' : 'Connect a fitness device in Settings to sync rings'}
             </Text>
           </View>
@@ -1255,7 +1258,7 @@ export default function NativeApp() {
           <FitnessRing label="Exercise" value={dailyFitnessMetrics?.exerciseMinutes ?? 0} goal={30} unit="min" color="#a447e8" />
           <FitnessRing label="Stand / move" value={dailyFitnessMetrics?.standHours ?? 0} goal={12} unit="hrs" color="#22a9c5" />
         </View>
-        <Text style={styles.fitnessRingsNote}>Daily goals are estimates. Stand / move hours count hours with recorded movement, not a medical measure of standing.</Text>
+        <Text style={styles.fitnessRingsNote} className="dark:text-[#9eafa2]">Daily goals are estimates. Stand / move hours count hours with recorded movement, not a medical measure of standing.</Text>
       </View>
       <View className="mb-4 rounded-[25px] bg-ink p-5 shadow-lg">
         <Text style={styles.highlightEyebrow}>UP NEXT</Text>
@@ -1279,11 +1282,11 @@ export default function NativeApp() {
         <>
           <SectionTitle title="Synced workouts" />
           {importedWorkouts.slice(0, 3).map((workout) => (
-            <View key={workout.id} style={styles.syncedWorkoutRow}>
+            <View key={workout.id} style={styles.syncedWorkoutRow} className="rounded-[18px] border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]">
               <View style={styles.syncedWorkoutIcon}><AppIcon name="fitness" size={17} /></View>
               <View style={styles.syncedWorkoutCopy}>
-                <Text style={styles.syncedWorkoutTitle} numberOfLines={1}>{workout.title}</Text>
-                <Text style={styles.syncedWorkoutSub}>{workout.source} · {new Date(workout.startedAt).toLocaleDateString()}</Text>
+                <Text style={styles.syncedWorkoutTitle} className="dark:text-[#f3f7f0]" numberOfLines={1}>{workout.title}</Text>
+                <Text style={styles.syncedWorkoutSub} className="dark:text-[#9eafa2]">{workout.source} · {new Date(workout.startedAt).toLocaleDateString()}</Text>
               </View>
               <Text style={styles.syncedWorkoutDistance}>{workout.distanceMeters ? `${(workout.distanceMeters / 1609.344).toFixed(1)} mi` : `${Math.round(workout.durationSeconds / 60)} min`}</Text>
             </View>
@@ -1410,9 +1413,9 @@ export default function NativeApp() {
           </View>
         </View>}
         <View style={styles.accountActions}>
-          <Pressable style={styles.accountAction} onPress={() => setTab('owner')}>
-            <Text style={styles.simpleRowTitle}>{ownerStatus === 'verified' ? 'Manage your clubs' : ownerStatus === 'pending' ? 'Finish club owner verification' : 'Get club owner certified'}</Text>
-            <Text style={styles.simpleRowSub}>{ownerStatus === 'verified' ? 'Create club pages and manage members and updates.' : 'Confirm your email and review the draft owner documents.'}</Text>
+          <Pressable style={styles.accountAction} className="border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => setTab('owner')}>
+            <Text style={styles.simpleRowTitle} className="dark:text-[#f3f7f0]">{ownerStatus === 'verified' ? 'Manage your clubs' : ownerStatus === 'pending' ? 'Finish club owner verification' : 'Get club owner certified'}</Text>
+            <Text style={styles.simpleRowSub} className="dark:text-[#9eafa2]">{ownerStatus === 'verified' ? 'Create club pages and manage members and updates.' : 'Confirm your email and review the draft owner documents.'}</Text>
           </Pressable>
         </View>
       </View>
@@ -1452,13 +1455,13 @@ export default function NativeApp() {
             : <OwnerAccessScreen client={supabaseClient} status={ownerStatus} onStatusChanged={refreshOwnerStatus} />
         )}
       </View>
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]} className="border-[#dedfd7] bg-white dark:border-[#294032] dark:bg-[#0d1a12]">
         {tabs.map((item) => {
           const active = tab === item.id
           return (
             <Pressable key={item.id} style={styles.tabButton} onPress={() => setTab(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
               <AppIcon name={item.icon} size={22} color={active ? colors.ink : colors.muted} />
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{item.label}</Text>
+              <Text style={[styles.tabLabel, active && styles.tabLabelActive]} className={active ? 'dark:text-[#d9ff5a]' : 'dark:text-[#9eafa2]'}>{item.label}</Text>
               {active && <View style={styles.tabIndicator} />}
             </Pressable>
           )
