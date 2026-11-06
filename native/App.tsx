@@ -1264,10 +1264,12 @@ export default function NativeApp() {
         />
       }
     >
-      <ScreenHeader title={accountHandle} action={
-        <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
-          <AppIcon name="add" />
-        </Pressable>
+      <ScreenHeader title="FitHive" centerTitle action={
+        <View className="w-[93px] items-end">
+          <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
+            <AppIcon name="add" />
+          </Pressable>
+        </View>
       } />
       <Pressable className="mb-5 min-h-[66px] flex-row items-center rounded-[24px] border border-accent-200 bg-[#fbfff4] px-3.5 shadow-md dark:border-[#61752a] dark:bg-[#1a2518]" onPress={() => setComposing(true)}>
         <Avatar name={accountUsername} size={38} photoUri={profileAvatarUrl} />
@@ -1808,7 +1810,7 @@ const styles = StyleSheet.create({
   screenHeadingCentered: { alignItems: 'center', justifyContent: 'center' },
   eyebrow: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.1, marginBottom: 4 },
   screenTitle: { color: colors.ink, fontSize: 29, lineHeight: 35, fontWeight: '800', letterSpacing: -1.1 },
-  screenTitleCentered: { textAlign: 'center', width: '100%' },
+  screenTitleCentered: { textAlign: 'center', width: '100%', fontSize: 25, letterSpacing: -0.4, fontWeight: '900' },
   roundAction: { width: 42, height: 42, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   profileHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white, borderRadius: 15, paddingHorizontal: 13, height: 48, borderWidth: 1, borderColor: colors.line, marginBottom: 10 },
