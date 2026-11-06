@@ -142,13 +142,14 @@ export async function beginActivity(kind: ActivityKind) {
     }
     const foreground = await Location.requestForegroundPermissionsAsync()
     if (foreground.status !== 'granted') throw new Error('Location permission is needed to record your route.')
-    // Expo Go may not expose the native background-location permission flow.
-    // Foreground permission is enough to start tracking while the app is open;
-    // standalone/dev builds will additionally request background access.
+    let background: Location.PermissionResponse
     try {
-      await Location.requestBackgroundPermissionsAsync()
+      background = await Location.requestBackgroundPermissionsAsync()
     } catch {
-      // Continue with foreground tracking when the current runtime cannot grant background access.
+      throw new Error('Background location is not configured in this app build. Rebuild the app after installing the iOS location permissions, then try again.')
+    }
+    if (background.status !== 'granted') {
+      throw new Error('Background location permission is needed to keep recording your route when the screen is locked. Choose Allow in the permission prompt or enable it in Settings.')
     }
   }
 
