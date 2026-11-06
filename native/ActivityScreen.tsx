@@ -58,7 +58,7 @@ export function ActivityScreen({
   return (
     <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-8 pt-5">
       <Text className="text-[29px] font-extrabold tracking-[-1px] text-ink dark:text-[#f3f7f0]">Activity tracker</Text>
-      <Text className="mb-4 mt-1.5 text-[13px] leading-[19px] text-slate-500 dark:text-[#9eafa2]">Choose from outdoor, fitness, cardio, and sports activities. GPS maps are available for route-based activities.</Text>
+      <Text className="mb-4 mt-1.5 text-[13px] leading-[19px] text-slate-500 dark:text-[#9eafa2]">Track a workout, walk, run, or any activity that keeps you moving.</Text>
 
       <View className="mb-4 flex-row items-center gap-3 rounded-[22px] border border-accent-200 bg-[#e9f6a9] p-3.5 shadow-md dark:border-[#4b6138] dark:bg-[#16281c]">
         <View className="h-[38px] w-[38px] items-center justify-center rounded-full bg-[#efffae]"><Ionicons name="trophy" size={21} color={ink} /></View>
@@ -111,7 +111,7 @@ export function ActivityScreen({
       ) : (
         <View className="rounded-[26px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
           <Text className="text-[17px] font-extrabold text-ink dark:text-[#f3f7f0]">Start an activity</Text>
-          <Text className="mt-1 text-[11px] leading-[17px] text-slate-500 dark:text-[#9eafa2]">Search the activity list, then start a timer. Route activities ask for location permission.</Text>
+          <Text className="mt-1 text-[11px] leading-[17px] text-slate-500 dark:text-[#9eafa2]">Pick an activity below to start tracking.</Text>
           <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={muted} className="mt-3 h-[46px] rounded-[16px] border border-[#dfe7d9] bg-[#fbfdf9] px-3 text-ink dark:border-[#2a3b30] dark:bg-[#07110d] dark:text-[#f3f7f0]" accessibilityLabel="Search activity types" />
           <View style={styles.kindList}>
             {visibleActivities.map((item) => {

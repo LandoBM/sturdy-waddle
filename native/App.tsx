@@ -754,27 +754,38 @@ export default function NativeApp() {
   const locateNearbyActivities = async () => {
     setLocatingClubs(true)
     try {
+      if (!await Location.hasServicesEnabledAsync()) {
+        throw new Error('Turn on Location Services in your device settings, then try again.')
+      }
       const permission = await Location.requestForegroundPermissionsAsync()
       if (!permission.granted) {
         throw new Error('Allow location access in your device settings to find nearby activities.')
       }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-      const [place] = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+      const lastKnown = await Location.getLastKnownPositionAsync({
+        maxAge: 5 * 60 * 1000,
+        requiredAccuracy: 1000,
       })
-      if (!place) throw new Error('Could not determine your nearby city. Try searching by postal code.')
+      const position = lastKnown ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      let place: Location.LocationGeocodedAddress | null = null
+      try {
+        [place] = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        })
+      } catch {
+        // Coordinates are enough to load nearby places; reverse geocoding is only for the label.
+      }
       const coordinates = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       }
       setClubCoordinates(coordinates)
-      const detectedCountry = clubCountries.find(({ code }) => code === place.isoCountryCode?.toUpperCase())
+      const detectedCountry = clubCountries.find(({ code }) => code === place?.isoCountryCode?.toUpperCase())
       if (detectedCountry) {
         setCountryCode(detectedCountry.code)
-        if (place.postalCode) setPostalInput(place.postalCode)
+        if (place?.postalCode) setPostalInput(place.postalCode)
       }
-      setLocationLabel([place.city ?? place.subregion ?? 'Near me', place.region, place.isoCountryCode].filter(Boolean).join(', '))
+      setLocationLabel(place ? [place.city ?? place.subregion ?? 'Near me', place.region, place.isoCountryCode].filter(Boolean).join(', ') : 'Near me')
       setCategory('All')
       setNearbyPlacesError('')
       setNearbyPlaces([])
