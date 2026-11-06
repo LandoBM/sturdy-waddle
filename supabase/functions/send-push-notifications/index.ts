@@ -7,7 +7,8 @@ const supabase = createClient(
 
 Deno.serve(async (request) => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
-  const { notification_id: notificationId } = await request.json()
+  const payload = await request.json()
+  const notificationId = payload.notification_id ?? payload.record?.id
   if (!notificationId) return new Response('notification_id is required', { status: 400 })
 
   const { data: notification, error: notificationError } = await supabase
