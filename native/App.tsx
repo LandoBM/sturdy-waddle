@@ -170,17 +170,17 @@ function SectionTitle({ title, action, onPress }: { title: string; action?: stri
 
 function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number; joined: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.clubCard} className="mb-4 overflow-hidden rounded-[26px] border-0 bg-white shadow-lg dark:bg-[#18221a]">
+    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[26px] bg-white shadow-lg dark:bg-[#18221a]">
       <Image source={{ uri: club.image }} style={styles.clubImage} />
       <View style={styles.clubImageShade} />
       <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{club.category.toUpperCase()}</Text></View>
       {joined && <View style={styles.joinedBadge}><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
-      <View style={styles.clubCardBody} className="p-4">
-        <Text style={styles.clubName} className="text-[19px] dark:text-slate-100">{club.name}</Text>
-        <Text style={styles.clubMission} className="dark:text-slate-400" numberOfLines={2}>{club.mission}</Text>
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText} className="dark:text-slate-400"><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
-          <Text style={styles.metaText} className="dark:text-slate-400"><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
+      <View className="p-4">
+        <Text className="mb-1 text-[19px] font-extrabold text-ink dark:text-slate-100">{club.name}</Text>
+        <Text className="text-xs leading-[18px] text-slate-500 dark:text-slate-400" numberOfLines={2}>{club.mission}</Text>
+        <View className="mt-3 flex-row justify-between">
+          <Text className="text-[10px] font-semibold text-slate-500 dark:text-slate-400"><AppIcon name="people-outline" size={14} color={colors.muted} />  {club.members.toLocaleString()} members</Text>
+          <Text className="text-[10px] font-semibold text-slate-500 dark:text-slate-400"><AppIcon name="location-outline" size={14} color={colors.muted} />  {miles} mi</Text>
         </View>
       </View>
     </Pressable>
@@ -189,7 +189,7 @@ function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number;
 
 function TripCard({ trip, onPress, reserved }: { trip: Trip; onPress: () => void; reserved: boolean }) {
   return (
-    <Pressable onPress={onPress} style={styles.tripCard}>
+    <Pressable onPress={onPress} className="mb-2 flex-row items-center gap-3 rounded-[22px] border border-[#dfe7d9] bg-white p-2.5 shadow-sm dark:border-[#2b3a2d] dark:bg-[#18221a]">
       <Image source={{ uri: trip.image }} style={styles.tripImage} />
       <View style={styles.tripInfo}>
         <View style={styles.tripTopLine}>
@@ -1040,7 +1040,7 @@ export default function NativeApp() {
           <AppIcon name="person-outline" />
         </Pressable>
       } />
-      <View style={styles.searchBox} className="rounded-[20px] border-[#dfe7d9] bg-white shadow-sm dark:border-[#2b3a2d] dark:bg-[#18221a]">
+      <View className="mb-2 h-[50px] flex-row items-center gap-2 rounded-[20px] border border-[#dfe7d9] bg-white px-3 shadow-sm dark:border-[#2b3a2d] dark:bg-[#18221a]">
         <AppIcon name="search-outline" color={colors.muted} />
         <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={colors.muted} style={styles.searchInput} returnKeyType="search" />
       </View>
@@ -1070,17 +1070,17 @@ export default function NativeApp() {
             accessibilityLabel="Postal code"
           />
         </View>
-        <Pressable style={[styles.searchButton, searchingPostalCode && styles.disabledAction]} className="min-h-[44px] rounded-[15px] bg-ink" onPress={() => {
+        <Pressable className="min-h-[44px] min-w-[78px] items-center justify-center rounded-[15px] bg-ink px-4" onPress={() => {
           void searchByPostalCode()
         }} disabled={searchingPostalCode}>
           <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Searching…' : 'Search'}</Text>
         </Pressable>
       </View>
-      <Pressable style={styles.nearMeButton} className="min-h-[44px] rounded-[16px] border-[#dfe7d9] bg-white dark:border-[#2b3a2d] dark:bg-[#18221a]" onPress={findNearbyActivities} disabled={locatingClubs}>
+      <Pressable className="mb-3 mt-[-5px] min-h-[44px] flex-row items-center justify-center gap-2 rounded-[16px] border border-[#dfe7d9] bg-white dark:border-[#2b3a2d] dark:bg-[#18221a]" onPress={findNearbyActivities} disabled={locatingClubs}>
         <AppIcon name="navigate-outline" color={colors.blue} />
         <Text style={styles.nearMeText}>{locatingClubs ? 'Finding your location…' : 'Find activities near me'}</Text>
       </Pressable>
-      <View style={styles.locationBanner} className="rounded-[17px] border border-accent-200 bg-[#f0f7d0] dark:border-[#46552d] dark:bg-[#1b2919]">
+      <View className="mb-3 flex-row items-center gap-2 rounded-[17px] border border-accent-200 bg-[#f0f7d0] px-3 py-3 dark:border-[#46552d] dark:bg-[#1b2919]">
         <AppIcon name="navigate-outline" color={colors.ink} />
         <Text style={styles.locationBannerText}>{locationLabel}<Text style={styles.mutedText}> · {nearbyPlaces.length} places found</Text></Text>
       </View>
@@ -1152,9 +1152,9 @@ export default function NativeApp() {
   )
 
   const renderSchedule = () => (
-    <ScrollView style={styles.scheduleScreen} className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerStyle={styles.screenContent}>
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Schedule" />
-      <View style={styles.weekCalendar}>
+      <View className="mb-3 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
         <View style={styles.weekCalendarHeader}>
           <Pressable onPress={() => moveScheduleWeek(-1)} accessibilityLabel="Previous week" style={styles.weekArrow}>
             <AppIcon name="chevron-back" size={17} />
@@ -1187,7 +1187,7 @@ export default function NativeApp() {
           })}
         </View>
       </View>
-      <View style={styles.fitnessRingsCard}>
+      <View className="mb-4 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
         <View style={styles.fitnessRingsHeader}>
           <View>
             <Text style={styles.fitnessRingsTitle}>Today's movement</Text>
@@ -1203,12 +1203,12 @@ export default function NativeApp() {
         </View>
         <Text style={styles.fitnessRingsNote}>Daily goals are estimates. Stand / move hours count hours with recorded movement, not a medical measure of standing.</Text>
       </View>
-      <View style={styles.highlightCard}>
+      <View className="mb-4 rounded-[25px] bg-ink p-5 shadow-lg">
         <Text style={styles.highlightEyebrow}>UP NEXT</Text>
         <Text style={styles.highlightTitle}>{scheduleTrips[0]?.title ?? 'Make a plan outdoors'}</Text>
         <Text style={styles.highlightBody}>{scheduleTrips[0] ? `${scheduleTrips[0].shortDay}, ${scheduleTrips[0].shortDate} · ${scheduleTrips[0].time}` : 'Explore clubs and add an event to your schedule.'}</Text>
       </View>
-      <View style={styles.scheduleTrackerCard}>
+      <View className="mb-4 rounded-[23px] border border-accent-200 bg-[#eef6d2] p-3 shadow-md dark:border-[#46552d] dark:bg-[#1b2919]">
         <View style={styles.scheduleTrackerHeader}>
           <View style={styles.scheduleTrackerIcon}><AppIcon name="fitness-outline" size={20} /></View>
           <View style={styles.scheduleTrackerCopy}>
@@ -1293,18 +1293,18 @@ export default function NativeApp() {
   )
 
   const renderExplore = () => (
-    <ScrollView contentContainerStyle={styles.screenContent}>
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Explore" />
-      <View style={styles.exploreIntro}>
-        <Text style={styles.exploreIntroTitle}>A little more outside.</Text>
-        <Text style={styles.exploreIntroText}>Find your next favorite place, activity, or crew.</Text>
+      <View className="mb-2 rounded-[24px] border border-accent-200 bg-[#eef6d2] p-5 dark:border-[#46552d] dark:bg-[#1b2919]">
+        <Text className="text-[25px] font-extrabold tracking-[-0.8px] text-ink dark:text-slate-100">A little more outside.</Text>
+        <Text className="mt-1 text-[13px] leading-[19px] text-slate-600 dark:text-slate-400">Find your next favorite place, activity, or crew.</Text>
       </View>
       <SectionTitle title="Upcoming near you" action="Schedule" onPress={() => setTab('schedule')} />
       {trips.slice(0, 3).map((trip) => <TripCard key={trip.id} trip={trip} reserved={reserved.includes(trip.id)} onPress={() => openTrip(trip)} />)}
       <SectionTitle title="Community moments" />
       <View style={styles.mediaGrid}>
         {media.map((item) => (
-          <Pressable key={item.id} style={styles.mediaTile} onPress={() => setTab('feed')}>
+          <Pressable key={item.id} style={styles.mediaTile} className="overflow-hidden rounded-[22px] shadow-lg" onPress={() => setTab('feed')}>
             <Image source={{ uri: item.image }} style={styles.mediaImage} />
             <View style={styles.mediaOverlay}>
               <Text style={styles.mediaCaption} numberOfLines={2}>{item.caption}</Text>
@@ -1317,7 +1317,7 @@ export default function NativeApp() {
   )
 
   const renderProfile = () => (
-    <ScrollView contentContainerStyle={styles.screenContent}>
+    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title={accountHandle} centerTitle action={
         <View style={styles.profileHeaderActions}>
           <Pressable
@@ -1338,15 +1338,15 @@ export default function NativeApp() {
           </Pressable>
         </View>
       } />
-      <View style={styles.profileCard}>
+      <View className="items-center rounded-[28px] border border-[#dfe7d9] bg-white p-5 shadow-lg dark:border-[#2b3a2d] dark:bg-[#18221a]">
         <Avatar name={accountUsername} size={76} photoUri={profileAvatarUrl} />
-        <Text style={styles.profileName}>{accountHandle}</Text>
-        {!!profileName && <Text style={styles.profileHandle}>{profileName}</Text>}
-        <Text style={styles.profileBio}>{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
-        <View style={styles.profileStats}>
-          <View><Text style={styles.profileStatValue}>{joined.length}</Text><Text style={styles.profileStatLabel}>Clubs</Text></View>
-          <View><Text style={styles.profileStatValue}>{scheduleIds.length}</Text><Text style={styles.profileStatLabel}>Events</Text></View>
-          <View><Text style={styles.profileStatValue}>{myPosts.length}</Text><Text style={styles.profileStatLabel}>Posts</Text></View>
+        <Text className="mt-3 text-[21px] font-extrabold text-ink dark:text-slate-100">{accountHandle}</Text>
+        {!!profileName && <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{profileName}</Text>}
+        <Text className="mt-2 text-center text-xs leading-[18px] text-slate-500 dark:text-slate-400">{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
+        <View className="mt-4 w-full flex-row justify-around border-t border-[#edf0e7] pt-4 dark:border-[#2a382c]">
+          <View className="items-center"><Text className="text-lg font-extrabold text-ink dark:text-slate-100">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Clubs</Text></View>
+          <View className="items-center"><Text className="text-lg font-extrabold text-ink dark:text-slate-100">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Events</Text></View>
+          <View className="items-center"><Text className="text-lg font-extrabold text-ink dark:text-slate-100">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-slate-400">Posts</Text></View>
         </View>
         <View style={styles.accountActions}>
           <Pressable style={styles.accountAction} onPress={() => setTab('owner')}>
