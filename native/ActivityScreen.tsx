@@ -88,6 +88,20 @@ function RouteExportCard({ activity, captureTarget }: { activity: RecordedActivi
   )
 }
 
+function RouteThumbnail({ activity }: { activity: RecordedActivity }) {
+  const points = activity.points.length > 1 ? activity.points : demoRoutePoints(activity)
+  const polyline = routePolyline(points, 72, 52)
+  return (
+    <View style={styles.routeThumbnail} accessibilityLabel="Activity route preview">
+      <Svg width={72} height={52} viewBox="0 0 72 52">
+        <Circle cx={5} cy={47} r={3} fill="#a447e8" />
+        <Polyline points={polyline} fill="none" stroke="#a447e8" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx={67} cy={5} r={3} fill="#ff6c48" />
+      </Svg>
+    </View>
+  )
+}
+
 function Metric({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
     <View style={styles.metric}>
@@ -219,6 +233,7 @@ export function ActivityScreen({
             <Text style={styles.historyDate} className="dark:text-[#9eafa2]">{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString()}</Text>
             <Text style={styles.historyStats} className="dark:text-[#dce8dd]">{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
           </View>
+          <RouteThumbnail activity={activity} />
         </Pressable>
       ))}
       <Modal visible={!!selectedActivity} animationType="slide" onRequestClose={() => setSelectedActivity(null)}>
@@ -311,6 +326,7 @@ const styles = StyleSheet.create({
   historyTitle: { color: ink, fontWeight: '800', fontSize: 12 },
   historyDate: { color: muted, fontSize: 9, marginTop: 3 },
   historyStats: { color: ink, fontSize: 10, fontWeight: '700', marginTop: 5 },
+  routeThumbnail: { width: 78, height: 58, borderRadius: 14, backgroundColor: '#f5f7ef', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   detailScreen: { flex: 1, backgroundColor: '#f4f7f1' },
   detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 15, paddingBottom: 10 },
   closeButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e9eee4' },
