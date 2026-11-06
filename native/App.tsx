@@ -1034,7 +1034,7 @@ export default function NativeApp() {
   }
 
   const renderHome = () => (
-    <ScrollView className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.clubsScreen} className="flex-1 bg-[#f4f7f1] dark:bg-[#10130f]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-7 pt-4" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
         <Pressable style={styles.roundAction} onPress={() => setTab('profile')} accessibilityLabel="Open profile">
           <AppIcon name="person-outline" />
@@ -1807,6 +1807,7 @@ const styles = StyleSheet.create({
   authLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   authLoadingText: { color: colors.muted, fontSize: 13 },
   screenContent: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 28 },
+  clubsScreen: { backgroundColor: '#f4f7f1' },
   screenHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 },
   screenHeaderSpacer: { width: 93 },
   screenHeading: { flex: 1 },
@@ -1817,7 +1818,7 @@ const styles = StyleSheet.create({
   screenWordmark: { fontFamily: 'Pacifico_400Regular', fontSize: 30, lineHeight: 40, letterSpacing: 0, fontWeight: '400' },
   roundAction: { width: 42, height: 42, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   profileHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white, borderRadius: 15, paddingHorizontal: 13, height: 48, borderWidth: 1, borderColor: colors.line, marginBottom: 10 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white, borderRadius: 20, paddingHorizontal: 13, height: 50, borderWidth: 1, borderColor: '#dfe7d9', marginBottom: 10, shadowColor: '#17351e', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   searchInput: { flex: 1, color: colors.ink, fontSize: 14, paddingVertical: 0 },
   zipRow: { flexDirection: 'row', gap: 7, marginBottom: 14 },
   zipInputBox: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: colors.white, borderRadius: 14, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.line, height: 46 },
@@ -1826,9 +1827,9 @@ const styles = StyleSheet.create({
   zipInput: { flex: 1, color: colors.ink, fontSize: 14, paddingVertical: 0 },
   searchButton: { backgroundColor: colors.ink, minWidth: 78, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15 },
   searchButtonText: { color: colors.white, fontWeight: '700', fontSize: 13 },
-  nearMeButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.white, borderRadius: 13, borderWidth: 1, borderColor: colors.line, marginTop: -5, marginBottom: 12 },
+  nearMeButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.white, borderRadius: 16, borderWidth: 1, borderColor: '#dfe7d9', marginTop: -5, marginBottom: 12 },
   nearMeText: { color: colors.blue, fontSize: 12, fontWeight: '800' },
-  locationBanner: { backgroundColor: '#e8eadf', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  locationBanner: { backgroundColor: '#f0f7d0', borderRadius: 17, paddingHorizontal: 13, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, borderWidth: 1, borderColor: '#d9e98b' },
   locationBannerText: { fontWeight: '700', color: colors.ink, fontSize: 13 },
   mutedText: { color: colors.muted, fontWeight: '500' },
   nearbyAttribution: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -7, marginBottom: 10 },
@@ -1841,19 +1842,19 @@ const styles = StyleSheet.create({
   nearbyPlaceName: { color: colors.ink, fontSize: 13, fontWeight: '800' },
   nearbyPlaceActivities: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 4 },
   chipList: { gap: 7, paddingBottom: 15 },
-  chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, borderWidth: 1, borderColor: '#dfe7d9', backgroundColor: colors.white },
   chipSelected: { backgroundColor: colors.lime, borderColor: colors.lime },
   chipText: { color: colors.ink, fontWeight: '600', fontSize: 12 },
   chipTextSelected: { fontWeight: '800' },
-  clubCard: { backgroundColor: colors.white, borderRadius: 23, overflow: 'hidden', marginBottom: 15, borderWidth: 1, borderColor: colors.line },
+  clubCard: { backgroundColor: colors.white, borderRadius: 26, overflow: 'hidden', marginBottom: 16, borderWidth: 0, borderColor: 'transparent', shadowColor: '#17351e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 5 },
   clubImage: { width: '100%', height: 168, backgroundColor: '#d7dbcf' },
   clubImageShade: { position: 'absolute', top: 0, left: 0, right: 0, height: 168, backgroundColor: '#00000016' },
   categoryBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: colors.white, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6 },
   categoryBadgeText: { color: colors.ink, fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
   joinedBadge: { position: 'absolute', top: 11, right: 11, backgroundColor: colors.lime, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 4 },
   joinedBadgeText: { color: colors.ink, fontSize: 10, fontWeight: '800' },
-  clubCardBody: { padding: 14 },
-  clubName: { color: colors.ink, fontSize: 18, fontWeight: '800', marginBottom: 5 },
+  clubCardBody: { padding: 16 },
+  clubName: { color: colors.ink, fontSize: 19, fontWeight: '800', marginBottom: 5 },
   clubMission: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   metaText: { color: colors.muted, fontSize: 10, fontWeight: '600' },
