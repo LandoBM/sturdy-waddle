@@ -1425,6 +1425,25 @@ export default function NativeApp() {
     </ScrollView>
   )
 
+  const renderBottomTabs = (onNavigate: (next: Tab) => void = (next) => setTab(next)) => (
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]} className="border-[#dedfd7] bg-white dark:border-[#294032] dark:bg-[#0d1a12]">
+      {tabs.map((item) => {
+        const active = tab === item.id
+        return (
+          <Pressable key={item.id} style={styles.tabButton} onPress={() => onNavigate(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
+            {item.id === 'profile' ? (
+              <View className={`h-7 w-7 items-center justify-center rounded-full border-2 ${active ? 'border-accent-200' : 'border-transparent'}`}>
+                <Avatar name={accountUsername} size={24} photoUri={profileAvatarUrl} />
+              </View>
+            ) : <AppIcon name={item.icon} size={22} color={active ? colors.ink : colors.muted} />}
+            <Text style={[styles.tabLabel, active && styles.tabLabelActive]} className={active ? 'dark:text-[#d9ff5a]' : 'dark:text-[#9eafa2]'}>{item.label}</Text>
+            {active && <View style={styles.tabIndicator} />}
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+
   if (authLoading || !fontsLoaded) {
     return <SafeAreaView style={styles.safeArea}><View style={styles.authLoading}><Text style={styles.authLoadingText}>Loading your account…</Text></View></SafeAreaView>
   }
@@ -1455,22 +1474,7 @@ export default function NativeApp() {
             : <OwnerAccessScreen client={supabaseClient} status={ownerStatus} onStatusChanged={refreshOwnerStatus} />
         )}
       </View>
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]} className="border-[#dedfd7] bg-white dark:border-[#294032] dark:bg-[#0d1a12]">
-        {tabs.map((item) => {
-          const active = tab === item.id
-          return (
-            <Pressable key={item.id} style={styles.tabButton} onPress={() => setTab(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
-              {item.id === 'profile' ? (
-                <View className={`h-7 w-7 items-center justify-center rounded-full border-2 ${active ? 'border-accent-200' : 'border-transparent'}`}>
-                  <Avatar name={accountUsername} size={24} photoUri={profileAvatarUrl} />
-                </View>
-              ) : <AppIcon name={item.icon} size={22} color={active ? colors.ink : colors.muted} />}
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]} className={active ? 'dark:text-[#d9ff5a]' : 'dark:text-[#9eafa2]'}>{item.label}</Text>
-              {active && <View style={styles.tabIndicator} />}
-            </Pressable>
-          )
-        })}
-      </View>
+      {renderBottomTabs()}
 
       <Modal visible={!!selectedClub} animationType="slide" onRequestClose={() => setSelectedClub(null)}>
         {selectedClub && <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
@@ -1696,7 +1700,7 @@ export default function NativeApp() {
             <Text style={styles.sheetTitle}>Settings</Text>
             <View style={{ width: 24 }} />
           </View>
-          <ScrollView contentContainerStyle={styles.settingsContent}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.settingsContent}>
             <View style={styles.settingsAccount}>
               <Avatar name={accountUsername} size={48} photoUri={profileAvatarUrl} />
               <View style={styles.simpleRowCopy}>
@@ -1827,6 +1831,7 @@ export default function NativeApp() {
               <Text style={styles.signOutLabel}>Sign out</Text>
             </Pressable>
           </ScrollView>
+          {renderBottomTabs((next) => { setSettingsVisible(false); setTab(next) })}
         </SafeAreaView>
       </Modal>
 
