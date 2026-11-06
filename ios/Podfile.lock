@@ -124,6 +124,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ExpoApplication (58.1.2):
+    - ExpoModulesCore
   - ExpoAsset (58.0.20):
     - ExpoModulesCore
   - ExpoBlob (58.0.3):
@@ -181,6 +183,8 @@ PODS:
     - ExpoModulesJSI
     - ExpoModulesWorklets
     - RNWorklets
+  - ExpoNotifications (58.1.8):
+    - ExpoModulesCore
   - ExpoStatusBar (58.0.4):
     - ExpoModulesCore
   - ExpoTaskManager (58.0.13):
@@ -2432,6 +2436,7 @@ DEPENDENCIES:
   - expo-dev-launcher (from `../node_modules/expo-dev-launcher`)
   - expo-dev-menu (from `../node_modules/expo-dev-menu`)
   - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
+  - ExpoApplication (from `../node_modules/expo-application/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBlob (from `../node_modules/expo-blob/ios`)
   - "ExpoDomWebView (from `../node_modules/@expo/dom-webview/ios`)"
@@ -2446,6 +2451,7 @@ DEPENDENCIES:
   - ExpoModulesJSI (from `../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../node_modules/expo-modules-core/ExpoModulesWorklets.podspec`)
   - ExpoModulesWorkletsAdapter (from `../node_modules/expo-modules-core`)
+  - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
   - ExpoStatusBar (from `../node_modules/expo-status-bar/ios`)
   - ExpoTaskManager (from `../node_modules/expo-task-manager/ios`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
@@ -2568,6 +2574,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-dev-menu"
   expo-dev-menu-interface:
     :path: "../node_modules/expo-dev-menu-interface/ios"
+  ExpoApplication:
+    :path: "../node_modules/expo-application/ios"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
   ExpoBlob:
@@ -2596,6 +2604,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/expo-modules-core/ExpoModulesWorklets.podspec"
   ExpoModulesWorkletsAdapter:
     :path: "../node_modules/expo-modules-core"
+  ExpoNotifications:
+    :path: "../node_modules/expo-notifications/ios"
   ExpoStatusBar:
     :path: "../node_modules/expo-status-bar/ios"
   ExpoTaskManager:
@@ -2807,6 +2817,7 @@ SPEC CHECKSUMS:
   expo-dev-launcher: bfcef59e558058e0e3afcb33b8e37aff4804af76
   expo-dev-menu: 6b2030d709633f4b0aa58bfeca54b612235e5a4c
   expo-dev-menu-interface: d304e400271187edf1534704a4a05dcc140076e2
+  ExpoApplication: c83355b2f69f996b5d26b64fef39228e7f1e1208
   ExpoAsset: c080026976ef8f00dca12c4958c658b2ebd4d4e0
   ExpoBlob: 4601da7bdda4e58e704f04eb1a4f4c4537332f91
   ExpoDomWebView: b2a6d681b9d34c23b1f584321386ca8da1d36afb
@@ -2821,6 +2832,7 @@ SPEC CHECKSUMS:
   ExpoModulesJSI: 600554f1b699e994b78398d87a39d477b6cd4bed
   ExpoModulesWorklets: 25684e76e7b886dd31bf4538c3fd657bf07a694b
   ExpoModulesWorkletsAdapter: 7a3e1a2b9ef6bc033c31e7cbd7c511aecca70aa8
+  ExpoNotifications: d0621bf548676831247952ec23d280098391ea3c
   ExpoStatusBar: 56aa9746e1bee4d8adbab12f4d7efc97000ac49f
   ExpoTaskManager: a47c4de3446e9754c6f11eef227e0b20141a19cd
   EXUpdatesInterface: 1c6a522d0eb0485f4de3fa55d0316288763b3f10
