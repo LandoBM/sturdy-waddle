@@ -267,7 +267,7 @@ function PostCard({
   return (
     <View className="mb-4 rounded-[26px] border-0 bg-white p-4 shadow-lg dark:bg-[#132018]">
       <View className="mb-4 flex-row items-center gap-2.5">
-        <Avatar name={post.handle} size={40} photoUri={post.mine ? photoUri : null} />
+        <Avatar name={post.handle} size={40} photoUri={post.mine ? photoUri : post.avatarUrl} />
         <View className="flex-1">
           <Text className="text-xs font-extrabold text-ink dark:text-[#f3f7f0]">@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
           <Text className="mt-0.5 text-[10px] text-slate-500 dark:text-[#9eafa2]">{post.club ? `${post.club} · ` : ''}{post.time}</Text>
@@ -513,6 +513,53 @@ export default function NativeApp() {
     })
     return () => { active = false }
   }, [session?.user.id, profileUsername, session?.user.user_metadata?.username, session?.user.email])
+
+  useEffect(() => {
+    const client = supabaseClient
+    if (!client || !session?.user.id) {
+      setPosts(seedPosts)
+      return
+    }
+    let active = true
+    const loadCommunityPosts = async () => {
+      const { data, error } = await client.from('community_posts')
+        .select('id,author_id,body,image_url,location,club,created_at,profiles!community_posts_author_id_fkey(display_name,username,avatar_url)')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) {
+        if (['PGRST205', '42P01'].includes(error.code ?? '')) return
+        throw error
+      }
+      if (!active) return
+      const remotePosts: Post[] = (data ?? []).flatMap((row) => {
+        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+        const handle = profile?.username
+        if (!handle) return []
+        return [{
+          id: `remote-${row.id}`,
+          authorId: row.author_id,
+          author: profile.display_name || handle,
+          handle,
+          avatarUrl: profile.avatar_url,
+          mine: row.author_id === session.user.id,
+          text: row.body,
+          image: row.image_url ?? undefined,
+          location: row.location ?? undefined,
+          club: row.club ?? undefined,
+          time: new Date(row.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          likes: 0,
+          comments: [],
+          liked: false,
+          saved: false,
+        }]
+      })
+      setPosts([...remotePosts, ...seedPosts])
+    }
+    loadCommunityPosts().catch((error: unknown) => {
+      if (active) Alert.alert('Unable to refresh community posts', error instanceof Error ? error.message : 'Showing the latest available posts.')
+    })
+    return () => { active = false }
+  }, [session?.user.id])
 
   useEffect(() => {
     const client = supabaseClient
@@ -1085,10 +1132,11 @@ export default function NativeApp() {
     setDraftLocation('')
     setDraftImage(undefined)
   }
-  const submitPost = () => {
+  const submitPost = async () => {
     if (!draftText.trim() && !draftImage) return
     const post: Post = {
       id: `post-${Date.now()}`,
+      authorId: session?.user.id,
       author: accountUsername,
       handle: accountUsername,
       mine: true,
@@ -1102,6 +1150,17 @@ export default function NativeApp() {
       saved: false,
     }
     setPosts((current) => [post, ...current])
+    if (supabaseClient && session?.user.id && draftText.trim()) {
+      const { error } = await supabaseClient.from('community_posts').insert({
+        author_id: session.user.id,
+        body: draftText.trim(),
+        image_url: null,
+        location: draftLocation.trim() || null,
+      })
+      if (error && !['PGRST205', '42P01'].includes(error.code ?? '')) {
+        Alert.alert('Post saved on this device', `It could not be shared with other accounts yet: ${error.message}`)
+      }
+    }
     closeComposer()
     setTab('feed')
   }

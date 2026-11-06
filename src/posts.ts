@@ -13,8 +13,10 @@ export interface Comment {
 
 export interface Post {
   id: string
+  authorId?: string
   author: string
   handle: string
+  avatarUrl?: string | null
   mine: boolean
   text: string
   image?: string
