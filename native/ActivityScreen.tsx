@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
 import { activityCatalog, activityTracksRoute } from './activityCatalog'
 import { RouteMap } from './RouteMap'
+import { FitnessRings, type FitnessRingValues } from './FitnessRings'
 import {
   calculatePaceSecondsPerMile,
   COMPLETION_POINTS,
@@ -34,6 +35,7 @@ export function ActivityScreen({
   onPause,
   onResume,
   onFinish,
+  ringMetrics,
 }: {
   store: ActivityStore
   elapsedSeconds: number
@@ -41,12 +43,15 @@ export function ActivityScreen({
   onPause: () => void
   onResume: () => void
   onFinish: () => void
+  ringMetrics: FitnessRingValues
 }) {
   const [kind, setKind] = useState<ActivityKind>('Hiking')
   const [activitySearch, setActivitySearch] = useState('')
   const active = store.active
   const visibleActivities = useMemo(
-    () => activityCatalog.filter((item) => item.name.toLowerCase().includes(activitySearch.trim().toLowerCase())),
+    () => activityCatalog
+      .filter((item) => item.name.toLowerCase().includes(activitySearch.trim().toLowerCase()))
+      .slice(0, 6),
     [activitySearch],
   )
 
@@ -61,6 +66,12 @@ export function ActivityScreen({
           <Text className="text-sm font-extrabold text-ink dark:text-[#f3f7f0]">{store.points} points earned</Text>
           <Text className="mt-0.5 text-[10px] text-[#4d5830] dark:text-[#9eafa2]">+{COMPLETION_POINTS} points for every completed activity</Text>
         </View>
+      </View>
+
+      <View className="mb-5 rounded-[26px] border border-[#dfe7d9] bg-white p-4 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
+        <Text className="text-[17px] font-extrabold text-ink dark:text-[#f3f7f0]">Today’s activity</Text>
+        <Text className="mt-1 text-[11px] leading-[17px] text-slate-500 dark:text-[#9eafa2]">Close your three rings with movement, exercise, and active time.</Text>
+        <FitnessRings values={ringMetrics} compact />
       </View>
 
       {active ? (
@@ -128,12 +139,12 @@ export function ActivityScreen({
       {store.history.length === 0 ? (
         <View className="rounded-[20px] border border-[#dfe7d9] bg-white p-4 dark:border-[#2a3b30] dark:bg-[#132018]"><Text className="text-[11px] text-slate-500 dark:text-[#9eafa2]">Your completed activities will show up here.</Text></View>
       ) : store.history.map((activity) => (
-        <View key={activity.id} style={styles.historyCard}>
+        <View key={activity.id} style={styles.historyCard} className="border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]">
           <View style={styles.historyIcon}><Ionicons name={activityTracksRoute(activity.kind) ? 'navigate-outline' : 'fitness-outline'} size={18} color={ink} /></View>
           <View style={styles.historyMain}>
-            <Text style={styles.historyTitle}>{activity.kind}</Text>
-            <Text style={styles.historyDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString()}</Text>
-            <Text style={styles.historyStats}>{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
+            <Text style={styles.historyTitle} className="dark:text-[#f3f7f0]">{activity.kind}</Text>
+            <Text style={styles.historyDate} className="dark:text-[#9eafa2]">{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString()}</Text>
+            <Text style={styles.historyStats} className="dark:text-[#dce8dd]">{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
           </View>
         </View>
       ))}

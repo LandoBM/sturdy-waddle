@@ -24,11 +24,11 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Circle, Text as SvgText } from 'react-native-svg'
 import { areas, clubById, clubs, distanceBetweenCoordinates, media, type Category, type Club, type Coordinates } from '../src/data'
 import { seedPosts, type Post } from '../src/posts'
 import { driveMinutes, formatDuration, tripById, trips, type Trip } from '../src/trips'
 import { ActivityScreen } from './ActivityScreen'
+import { FitnessRings, type FitnessRingValues } from './FitnessRings'
 import { AuthScreen } from './AuthScreen'
 import { OwnerAccessScreen } from './OwnerAccessScreen'
 import { OwnerTools } from './OwnerTools'
@@ -219,42 +219,6 @@ function TripCard({ trip, onPress, reserved }: { trip: Trip; onPress: () => void
       </View>
       <AppIcon name="chevron-forward" size={18} color={colors.muted} />
     </Pressable>
-  )
-}
-
-function FitnessRing({ label, value, goal, unit, color }: {
-  label: string
-  value: number
-  goal: number
-  unit: string
-  color: string
-}) {
-  const radius = 30
-  const circumference = 2 * Math.PI * radius
-  const progress = Math.min(1, Math.max(0, value / goal))
-  return (
-    <View style={styles.fitnessRingItem}>
-      <Svg width={76} height={76} viewBox="0 0 76 76">
-        <Circle cx={38} cy={38} r={radius} fill="none" stroke="#e9e9e4" strokeWidth={7} />
-        <Circle
-          cx={38}
-          cy={38}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={7}
-          strokeLinecap="round"
-          strokeDasharray={`${circumference}`}
-          strokeDashoffset={`${circumference * (1 - progress)}`}
-          rotation={-90}
-          origin="38, 38"
-        />
-        <SvgText x="38" y="40" textAnchor="middle" fill="#151712" fontSize="12" fontWeight="700">{Math.round(value)}</SvgText>
-        <SvgText x="38" y="51" textAnchor="middle" fill="#73776d" fontSize="7">{unit}</SvgText>
-      </Svg>
-      <Text style={styles.fitnessRingLabel}>{label}</Text>
-      <Text style={styles.fitnessRingGoal}>of {goal} {unit}</Text>
-    </View>
   )
 }
 
@@ -639,6 +603,28 @@ export default function NativeApp() {
         : 0
     )
     : 0
+
+  const ringMetricsForDate = (date: Date): FitnessRingValues => {
+    const isToday = dateKey(date) === dateKey(new Date())
+    if (isToday && dailyFitnessMetrics) {
+      return {
+        move: dailyFitnessMetrics.moveCalories,
+        exercise: dailyFitnessMetrics.exerciseMinutes,
+        stand: dailyFitnessMetrics.standHours,
+      }
+    }
+
+    const completed = activityStore.history.filter(
+      (activity) => dateKey(new Date(activity.endedAt ?? activity.startedAt)) === dateKey(date),
+    )
+    const exercise = completed.reduce((total, activity) => total + activity.elapsedSeconds / 60, 0)
+    const move = completed.reduce(
+      (total, activity) => total + (activity.distanceMeters > 0 ? activity.distanceMeters * 0.06 : activity.elapsedSeconds / 60 * 6),
+      0,
+    )
+    const stand = Math.min(12, completed.length + Math.floor(exercise / 45))
+    return { move, exercise, stand }
+  }
 
   const runActivityAction = async (action: () => Promise<unknown>, successMessage?: string) => {
     try {
@@ -1235,17 +1221,15 @@ export default function NativeApp() {
       <View className="mb-4 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
         <View style={styles.fitnessRingsHeader}>
           <View>
-            <Text style={styles.fitnessRingsTitle} className="dark:text-[#f3f7f0]">Today's movement</Text>
+            <Text style={styles.fitnessRingsTitle} className="dark:text-[#f3f7f0]">
+              {dateKey(selectedScheduleDate) === dateKey(new Date()) ? "Today's movement" : `${selectedScheduleDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} movement`}
+            </Text>
             <Text style={styles.fitnessRingsSub} className="dark:text-[#9eafa2]">
-              {dailyFitnessMetrics ? 'Synced today' : healthProvider ? 'Open Settings to sync today’s movement' : 'Connect a fitness device in Settings to sync rings'}
+              {dateKey(selectedScheduleDate) === dateKey(new Date()) && dailyFitnessMetrics ? 'Synced today' : 'Completed activity estimate for this day'}
             </Text>
           </View>
         </View>
-        <View style={styles.fitnessRingsRow}>
-          <FitnessRing label="Move" value={dailyFitnessMetrics?.moveCalories ?? 0} goal={500} unit="kcal" color="#ff6c48" />
-          <FitnessRing label="Exercise" value={dailyFitnessMetrics?.exerciseMinutes ?? 0} goal={30} unit="min" color="#a447e8" />
-          <FitnessRing label="Stand / move" value={dailyFitnessMetrics?.standHours ?? 0} goal={12} unit="hrs" color="#22a9c5" />
-        </View>
+        <FitnessRings values={ringMetricsForDate(selectedScheduleDate)} />
         <Text style={styles.fitnessRingsNote} className="dark:text-[#9eafa2]">Daily goals are estimates. Stand / move hours count hours with recorded movement, not a medical measure of standing.</Text>
       </View>
       <View className="mb-4 rounded-[25px] bg-ink p-5 shadow-lg">
@@ -1451,6 +1435,7 @@ export default function NativeApp() {
             onPause={() => { void runActivityAction(pauseActivity) }}
             onResume={() => { void runActivityAction(resumeActivity) }}
             onFinish={() => { void runActivityAction(finishActivity) }}
+            ringMetrics={ringMetricsForDate(new Date())}
           />
         )}
         {tab === 'feed' && renderFeed()}
