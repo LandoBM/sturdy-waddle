@@ -253,12 +253,16 @@ function PostCard({
   onLike,
   onSave,
   onComments,
+  following,
+  onToggleFollow,
 }: {
   post: Post
   photoUri?: string | null
   onLike: () => void
   onSave: () => void
   onComments: () => void
+  following?: boolean
+  onToggleFollow?: () => void
 }) {
   return (
     <View className="mb-4 rounded-[26px] border-0 bg-white p-4 shadow-lg dark:bg-[#132018]">
@@ -268,6 +272,9 @@ function PostCard({
           <Text className="text-xs font-extrabold text-ink dark:text-[#f3f7f0]">@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
           <Text className="mt-0.5 text-[10px] text-slate-500 dark:text-[#9eafa2]">{post.club ? `${post.club} · ` : ''}{post.time}</Text>
         </View>
+        {!post.mine && onToggleFollow && <Pressable onPress={onToggleFollow} className="min-h-[36px] items-center justify-center rounded-full border border-accent-200 bg-transparent px-3" accessibilityRole="button" accessibilityLabel={following ? `Unfollow @${post.handle}` : `Follow @${post.handle}`}>
+          <Text className="text-[10px] font-extrabold text-ink dark:text-[#d9ff5a]">{following ? 'Following' : 'Follow'}</Text>
+        </Pressable>}
         <Pressable accessibilityLabel="More post options" hitSlop={8} className="h-11 w-11 items-center justify-center"><AppIcon name="ellipsis-horizontal" color={colors.muted} /></Pressable>
       </View>
       {!!post.text && <Text className="mb-3.5 text-[15px] font-medium leading-[22px] text-ink dark:text-[#f3f7f0]">{post.text}</Text>}
@@ -312,6 +319,9 @@ export default function NativeApp() {
   const [profileUsername, setProfileUsername] = useState('')
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
   const [profileBio, setProfileBio] = useState('')
+  const [followedHandles, setFollowedHandles] = useState<string[]>([])
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
   const [accountSettingsError, setAccountSettingsError] = useState('')
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [appearancePreference, setAppearancePreference] = useState<AppearancePreference>('system')
@@ -471,6 +481,38 @@ export default function NativeApp() {
     })
     return () => { active = false }
   }, [session?.user.id])
+
+  useEffect(() => {
+    const client = supabaseClient
+    if (!client || !session?.user.id) {
+      setFollowedHandles([])
+      setFollowersCount(0)
+      setFollowingCount(0)
+      return
+    }
+    let active = true
+    const socialUsername = (profileUsername || session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'fithive')
+      .replace(/^@/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 20) || 'fithive'
+    const loadSocialGraph = async () => {
+      const [{ data: followingRows, error: followingError }, { count, error: followersError }] = await Promise.all([
+        client.from('user_follows').select('following_username').eq('follower_id', session.user.id),
+        client.from('user_follows').select('follower_id', { count: 'exact', head: true }).eq('following_username', socialUsername),
+      ])
+      if (followingError) throw followingError
+      if (followersError) throw followersError
+      if (!active) return
+      setFollowedHandles((followingRows ?? []).map((row) => row.following_username))
+      setFollowingCount(followingRows?.length ?? 0)
+      setFollowersCount(count ?? 0)
+    }
+    loadSocialGraph().catch((error: unknown) => {
+      if (active) setAccountSettingsError(`Social connections could not load: ${error instanceof Error ? error.message : 'Apply the social follows migration in Supabase.'}`)
+    })
+    return () => { active = false }
+  }, [session?.user.id, profileUsername, session?.user.user_metadata?.username, session?.user.email])
 
   useEffect(() => {
     const client = supabaseClient
@@ -1008,6 +1050,27 @@ export default function NativeApp() {
   const toggleSave = (postId: string) => {
     setPosts((current) => current.map((post) => post.id === postId ? { ...post, saved: !post.saved } : post))
   }
+  const toggleFollow = async (handle: string) => {
+    const client = supabaseClient
+    if (!client || !session?.user.id) return
+    const normalizedHandle = handle.replace(/^@/, '').toLowerCase()
+    const wasFollowing = followedHandles.includes(normalizedHandle)
+    setFollowedHandles((current) => wasFollowing ? current.filter((item) => item !== normalizedHandle) : [...current, normalizedHandle])
+    setFollowingCount((current) => Math.max(0, current + (wasFollowing ? -1 : 1)))
+    try {
+      if (wasFollowing) {
+        const { error } = await client.from('user_follows').delete().eq('follower_id', session.user.id).eq('following_username', normalizedHandle)
+        if (error) throw error
+      } else {
+        const { error } = await client.from('user_follows').insert({ follower_id: session.user.id, following_username: normalizedHandle })
+        if (error) throw error
+      }
+    } catch (error) {
+      setFollowedHandles((current) => wasFollowing ? [...current, normalizedHandle] : current.filter((item) => item !== normalizedHandle))
+      setFollowingCount((current) => Math.max(0, current + (wasFollowing ? 1 : -1)))
+      Alert.alert('Could not update follow', error instanceof Error ? error.message : 'Apply the social follows migration in Supabase, then try again.')
+    }
+  }
   const addComment = () => {
     const text = commentText.trim()
     if (!text || !commentsPostId) return
@@ -1322,6 +1385,8 @@ export default function NativeApp() {
           onLike={() => toggleLike(post.id)}
           onSave={() => toggleSave(post.id)}
           onComments={() => setCommentsPostId(post.id)}
+          following={followedHandles.includes(post.handle.toLowerCase())}
+          onToggleFollow={() => { void toggleFollow(post.handle) }}
         />
       ))}
     </ScrollView>
@@ -1378,10 +1443,12 @@ export default function NativeApp() {
           <Avatar name={accountUsername} size={82} photoUri={profileAvatarUrl} />
           <View className="ml-4 flex-1">
             <Text className="text-[20px] font-extrabold text-ink dark:text-[#f3f7f0]">{profileName || accountHandle}</Text>
-            <View className="mt-3 flex-row justify-between pr-2">
+              <View className="mt-3 flex-row justify-between pr-2">
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Clubs</Text></View>
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Events</Text></View>
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Posts</Text></View>
+                <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{followersCount}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Followers</Text></View>
+                <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{followingCount}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Following</Text></View>
             </View>
           </View>
         </View>
