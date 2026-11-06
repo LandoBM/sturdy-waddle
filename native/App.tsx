@@ -1578,7 +1578,6 @@ export default function NativeApp() {
           <View className="ml-4 flex-1">
             <Text className="text-[20px] font-extrabold text-ink dark:text-[#f3f7f0]">{profileName || accountHandle}</Text>
               <View className="mt-3 flex-row justify-between pr-2">
-              <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{joined.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Clubs</Text></View>
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{scheduleIds.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Events</Text></View>
               <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{myPosts.length}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Posts</Text></View>
                 <View className="items-center"><Text className="text-base font-extrabold text-ink dark:text-[#f3f7f0]">{followersCount}</Text><Text className="text-[10px] text-slate-500 dark:text-[#9eafa2]">Followers</Text></View>
@@ -1603,6 +1602,18 @@ export default function NativeApp() {
           </Pressable>
         </View>
       </View>
+      <SectionTitle title="Events" action="Schedule" onPress={() => setTab('schedule')} />
+      {scheduleTrips.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pb-1">
+          {scheduleTrips.map((trip) => (
+            <Pressable key={trip.id} onPress={() => openTrip(trip)} className="w-[156px] rounded-[22px] border border-[#dfe7d9] bg-white p-3 shadow-md dark:border-[#2a3b30] dark:bg-[#132018]" accessibilityRole="button" accessibilityLabel={`Open ${trip.title} on ${trip.shortDate}`}>
+              <View className="mb-3 h-10 w-10 items-center justify-center rounded-[14px] bg-accent-200"><AppIcon name="calendar-outline" size={19} /></View>
+              <Text className="text-[12px] font-extrabold leading-[17px] text-ink dark:text-[#f3f7f0]" numberOfLines={2}>{trip.title}</Text>
+              <Text className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{trip.shortDay}, {trip.shortDate}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-5 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your scheduled events will appear here.</Text>}
       <SectionTitle title="Recently posted" />
       {!myPosts.length && <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-6 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your recent posts will appear here.</Text>}
       {myPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} />)}
