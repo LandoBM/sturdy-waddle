@@ -44,7 +44,7 @@ export function ExploreScreen({ joined, toggleJoin, openClub }: ExploreScreenPro
 
   return (
     <div className="screen search-screen">
-      <Header eyebrow="Try something new" title="Explore" />
+      <Header title="Explore" />
       <label className="search-box">
         <Icon name="search" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people, clubs, places" />

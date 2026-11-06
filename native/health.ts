@@ -12,20 +12,153 @@ export interface ImportedWorkout {
   averageHeartRate?: number
 }
 
+export interface DailyFitnessMetrics {
+  date: string
+  moveCalories: number
+  exerciseMinutes: number
+  standHours: number
+  source: string
+}
+
 const HEALTH_WORKOUTS_KEY = 'outside.health-workouts.v1'
 const HEALTH_PROVIDER_KEY = 'outside.health-provider.v1'
+const DAILY_METRICS_KEY = 'outside.daily-fitness-metrics.v1'
+let healthUserId = 'anonymous'
+
+export function setHealthUserId(userId: string | null) {
+  healthUserId = userId ?? 'anonymous'
+}
+
+function userStorageKey(key: string) {
+  return `${key}.${healthUserId}`
+}
 
 export async function loadHealthProvider(): Promise<string | null> {
-  return AsyncStorage.getItem(HEALTH_PROVIDER_KEY)
+  return AsyncStorage.getItem(userStorageKey(HEALTH_PROVIDER_KEY))
 }
 
 export async function saveHealthProvider(provider: string | null) {
-  if (provider) await AsyncStorage.setItem(HEALTH_PROVIDER_KEY, provider)
-  else await AsyncStorage.removeItem(HEALTH_PROVIDER_KEY)
+  const key = userStorageKey(HEALTH_PROVIDER_KEY)
+  if (provider) await AsyncStorage.setItem(key, provider)
+  else await AsyncStorage.removeItem(key)
+}
+
+export async function loadDailyFitnessMetrics(): Promise<DailyFitnessMetrics | null> {
+  const raw = await AsyncStorage.getItem(userStorageKey(DAILY_METRICS_KEY))
+  if (!raw) return null
+  const parsed: unknown = JSON.parse(raw)
+  if (!parsed || typeof parsed !== 'object') throw new Error('Saved daily fitness metrics are invalid.')
+  const metrics = parsed as DailyFitnessMetrics
+  if (
+    typeof metrics.date !== 'string'
+    || !Number.isFinite(metrics.moveCalories)
+    || !Number.isFinite(metrics.exerciseMinutes)
+    || !Number.isFinite(metrics.standHours)
+    || typeof metrics.source !== 'string'
+  ) throw new Error('Saved daily fitness metrics are invalid.')
+  return metrics.date === localDateKey(new Date()) ? metrics : null
+}
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+async function saveDailyFitnessMetrics(metrics: DailyFitnessMetrics) {
+  await AsyncStorage.setItem(userStorageKey(DAILY_METRICS_KEY), JSON.stringify(metrics))
+  return metrics
+}
+
+async function syncAppleFitnessMetrics(): Promise<DailyFitnessMetrics> {
+  const healthkit = await import('@kingstinct/react-native-healthkit')
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+  const samples = await Promise.all([
+    healthkit.queryQuantitySamples('HKQuantityTypeIdentifierActiveEnergyBurned', {
+      limit: 1000,
+      filter: { date: { startDate: start, endDate: end } },
+      unit: 'kcal',
+    }),
+    healthkit.queryQuantitySamples('HKQuantityTypeIdentifierAppleExerciseTime', {
+      limit: 1000,
+      filter: { date: { startDate: start, endDate: end } },
+      unit: 'min',
+    }),
+    healthkit.queryQuantitySamples('HKQuantityTypeIdentifierAppleStandTime', {
+      limit: 1000,
+      filter: { date: { startDate: start, endDate: end } },
+      unit: 'min',
+    }),
+  ])
+  return saveDailyFitnessMetrics({
+    date: localDateKey(start),
+    moveCalories: Math.round(samples[0].reduce((total, sample) => total + sample.quantity, 0)),
+    exerciseMinutes: Math.round(samples[1].reduce((total, sample) => total + sample.quantity, 0)),
+    standHours: new Set(samples[2].filter((sample) => sample.quantity > 0).map((sample) => sample.startDate.getHours())).size,
+    source: 'Apple Health',
+  })
+}
+
+async function syncHealthConnectMetrics(): Promise<DailyFitnessMetrics> {
+  const healthConnect = await import('react-native-health-connect')
+  if (!(await healthConnect.initialize())) {
+    throw new Error('Health Connect is not available. Install or update it, then try again.')
+  }
+  const permissions = await healthConnect.requestPermission([
+    { accessType: 'read', recordType: 'Steps' },
+    { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
+    { accessType: 'read', recordType: 'ExerciseSession' },
+  ])
+  const granted = new Set(permissions.map((permission) => `${permission.accessType}:${permission.recordType}`))
+  const requiredPermissions = ['read:ExerciseSession', 'read:Steps', 'read:ActiveCaloriesBurned']
+  if (requiredPermissions.some((permission) => !granted.has(permission))) {
+    throw new Error('Allow access to workouts, steps, and active calories in Health Connect to sync all movement rings.')
+  }
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+  const filter = {
+    timeRangeFilter: {
+      operator: 'between' as const,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    },
+    pageSize: 1000,
+  }
+  const [exercise, steps, energy] = await Promise.all([
+    healthConnect.readRecords('ExerciseSession', filter),
+    healthConnect.readRecords('Steps', filter),
+    healthConnect.readRecords('ActiveCaloriesBurned', filter),
+  ])
+  const exerciseMinutes = exercise.records.reduce((total, record) => (
+    total + Math.max(0, Date.parse(record.endTime) - Date.parse(record.startTime)) / 60000
+  ), 0)
+  const standHours = new Set(steps.records.filter((record) => record.count > 0).map((record) => (
+    new Date(record.startTime).getHours()
+  ))).size
+  const moveCalories = energy.records.reduce((total, record) => total + record.energy.inKilocalories, 0)
+  return saveDailyFitnessMetrics({
+    date: localDateKey(start),
+    moveCalories: Math.round(moveCalories),
+    exerciseMinutes: Math.round(exerciseMinutes),
+    standHours,
+    source: 'Health Connect',
+  })
+}
+
+export async function syncDailyFitnessMetrics(): Promise<DailyFitnessMetrics> {
+  if (Platform.OS === 'ios') return syncAppleFitnessMetrics()
+  if (Platform.OS === 'android') return syncHealthConnectMetrics()
+  throw new Error('Daily fitness rings require Apple Health or Health Connect on a mobile device.')
 }
 
 export async function loadImportedWorkouts(): Promise<ImportedWorkout[]> {
-  const raw = await AsyncStorage.getItem(HEALTH_WORKOUTS_KEY)
+  const raw = await AsyncStorage.getItem(userStorageKey(HEALTH_WORKOUTS_KEY))
   if (!raw) return []
   const parsed: unknown = JSON.parse(raw)
   if (!Array.isArray(parsed)) throw new Error('Saved connected workouts are invalid.')
@@ -39,7 +172,7 @@ async function saveImportedWorkouts(workouts: ImportedWorkout[]) {
   const latest = [...merged.values()]
     .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))
     .slice(0, 100)
-  await AsyncStorage.setItem(HEALTH_WORKOUTS_KEY, JSON.stringify(latest))
+  await AsyncStorage.setItem(userStorageKey(HEALTH_WORKOUTS_KEY), JSON.stringify(latest))
   return latest
 }
 
@@ -63,6 +196,8 @@ async function syncAppleHealth(): Promise<ImportedWorkout[]> {
       'HKQuantityTypeIdentifierHeartRate',
       'HKQuantityTypeIdentifierDistanceWalkingRunning',
       'HKQuantityTypeIdentifierActiveEnergyBurned',
+      'HKQuantityTypeIdentifierAppleExerciseTime',
+      'HKQuantityTypeIdentifierAppleStandTime',
     ],
   })
   if (!authorized) throw new Error('Apple Health authorization could not be completed.')

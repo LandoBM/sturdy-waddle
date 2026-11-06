@@ -53,7 +53,7 @@ export function ClubsScreen({ joined, openClub }: ClubsScreenProps) {
 
   return (
     <div className="screen">
-      <Header eyebrow="Clubs near you" title="Find your people." />
+      <Header title="Find your people." />
 
       <form className={`zip-form ${error ? 'has-error' : ''}`} onSubmit={submit}>
         <Icon name="pin" />

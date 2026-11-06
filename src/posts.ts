@@ -1,8 +1,9 @@
-import { ridgeImage } from './data'
+import { people, ridgeImage } from './data'
 
 export interface Comment {
   id: string
   author: string
+  handle: string
   mine: boolean
   text: string
   time: string
@@ -26,9 +27,18 @@ export interface Post {
   saved: boolean
 }
 
-export const ME = { name: 'Alex Kim', handle: 'alexoutside' }
+export const ME = { handle: 'alexoutside' }
 
-const c = (id: string, author: string, text: string, time: string, likes = 0): Comment => ({ id, author, mine: false, text, time, likes, liked: false })
+const c = (id: string, author: string, text: string, time: string, likes = 0): Comment => ({
+  id,
+  author,
+  handle: people.find((person) => person.name === author)?.handle ?? author.toLowerCase().replace(/[^a-z0-9]+/g, ''),
+  mine: false,
+  text,
+  time,
+  likes,
+  liked: false,
+})
 
 export const seedPosts: Post[] = [
   {

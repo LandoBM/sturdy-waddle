@@ -45,7 +45,7 @@ export function CommentsSheet({ post, add, toggleLike, close }: CommentsSheetPro
         <div className="comments-scroll">
           <div className="comments-post">
             <CommentAvatar name={post.author} mine={post.mine} size={32} />
-            <p><strong>{post.author}</strong> {post.text || 'Shared a photo'}</p>
+            <p><strong>@{post.handle}</strong> {post.text || 'Shared a photo'}</p>
           </div>
 
           {post.comments.length === 0 && (
@@ -57,7 +57,7 @@ export function CommentsSheet({ post, add, toggleLike, close }: CommentsSheetPro
               <li key={cm.id} className="comment">
                 <CommentAvatar name={cm.author} mine={cm.mine} />
                 <div className="comment-main">
-                  <p><strong>{cm.author}</strong>{cm.mine && <em className="you-tag">You</em>}{cm.author === post.author && !cm.mine && <em className="you-tag author">Author</em>}</p>
+                  <p><strong>@{cm.handle}</strong>{cm.mine && <em className="you-tag">You</em>}{cm.handle === post.handle && !cm.mine && <em className="you-tag author">Author</em>}</p>
                   <p className="comment-text">{cm.text}</p>
                   <span className="comment-time">{cm.time}</span>
                 </div>
@@ -72,8 +72,8 @@ export function CommentsSheet({ post, add, toggleLike, close }: CommentsSheetPro
         </div>
 
         <form className="chat-input" onSubmit={submit}>
-          <CommentAvatar name={ME.name} mine size={40} />
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={`Reply to ${post.author.split(' ')[0]}`} aria-label="Add a comment" maxLength={280} />
+          <CommentAvatar name={ME.handle} mine size={40} />
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={`Reply to @${post.handle}`} aria-label="Add a comment" maxLength={280} />
           <button type="submit" disabled={!draft.trim()} aria-label="Post comment"><Icon name="arrow" size={20} /></button>
         </form>
       </section>

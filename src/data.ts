@@ -57,15 +57,31 @@ export interface Club {
 export interface Area {
   city: string
   state: string
+  latitude: number
+  longitude: number
 }
 
 export const areas: Record<string, Area> = {
-  '90027': { city: 'Los Angeles', state: 'CA' },
-  '10001': { city: 'New York', state: 'NY' },
-  '78701': { city: 'Austin', state: 'TX' },
-  '98101': { city: 'Seattle', state: 'WA' },
-  '80202': { city: 'Denver', state: 'CO' },
-  '60601': { city: 'Chicago', state: 'IL' },
+  '90027': { city: 'Los Angeles', state: 'CA', latitude: 34.1022, longitude: -118.2937 },
+  '10001': { city: 'New York', state: 'NY', latitude: 40.7506, longitude: -73.9972 },
+  '78701': { city: 'Austin', state: 'TX', latitude: 30.2711, longitude: -97.7437 },
+  '98101': { city: 'Seattle', state: 'WA', latitude: 47.6101, longitude: -122.3344 },
+  '80202': { city: 'Denver', state: 'CO', latitude: 39.7525, longitude: -104.9995 },
+  '60601': { city: 'Chicago', state: 'IL', latitude: 41.8864, longitude: -87.6231 },
+}
+
+export interface Coordinates {
+  latitude: number
+  longitude: number
+}
+
+export function distanceBetweenCoordinates(from: Coordinates, to: Coordinates) {
+  const radians = (degrees: number) => degrees * Math.PI / 180
+  const latitudeDelta = radians(to.latitude - from.latitude)
+  const longitudeDelta = radians(to.longitude - from.longitude)
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(radians(from.latitude)) * Math.cos(radians(to.latitude)) * Math.sin(longitudeDelta / 2) ** 2
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
 }
 
 interface Seed {

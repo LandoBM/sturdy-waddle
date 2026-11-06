@@ -1,6 +1,6 @@
 import { people } from './data'
 import { Icon } from './Icon'
-import type { Post } from './posts'
+import { ME, type Post } from './posts'
 import { Header } from './ui'
 
 interface FeedScreenProps {
@@ -18,9 +18,10 @@ function Avatar({ post }: { post: Post }) {
 }
 
 export function FeedScreen({ posts, toggleLike, toggleSave, compose, openComments }: FeedScreenProps) {
+  const ownInitials = ME.handle.slice(0, 2).toUpperCase()
   return (
     <div className="screen">
-      <Header eyebrow="The community" title="Outside feed" />
+      <Header title={`@${ME.handle}`} />
       <div className="feed-filter">
         <button className="active">Friends</button>
         <button>Clubs</button>
@@ -28,7 +29,7 @@ export function FeedScreen({ posts, toggleLike, toggleSave, compose, openComment
       </div>
 
       <button className="compose-bar" onClick={compose}>
-        <span className="author-avatar">AK</span>
+        <span className="author-avatar">{ownInitials}</span>
         <span>What's happening outside?</span>
         <span className="compose-bar-icon"><Icon name="plus" size={18} /></span>
       </button>
@@ -38,7 +39,7 @@ export function FeedScreen({ posts, toggleLike, toggleSave, compose, openComment
           <div className="post-author">
             <Avatar post={post} />
             <div>
-              <strong>{post.author}{post.mine && <em className="you-tag">You</em>}</strong>
+              <strong>@{post.handle}{post.mine && <em className="you-tag">You</em>}</strong>
               <p>{post.club ? `with ${post.club} · ` : ''}{post.time}</p>
             </div>
             <button aria-label="More"><Icon name="menu" size={21} /></button>
@@ -46,7 +47,7 @@ export function FeedScreen({ posts, toggleLike, toggleSave, compose, openComment
           {post.text && <p className={post.image ? 'post-copy' : 'post-copy big'}>{post.text}</p>}
           {post.image && (
             <div className="post-image">
-              <img src={post.image} alt={post.text || `Photo by ${post.author}`} />
+              <img src={post.image} alt={post.text || `Photo by @${post.handle}`} />
               {post.location && <span className="location-pill"><Icon name="map" size={14} /> {post.location}</span>}
             </div>
           )}
@@ -67,12 +68,12 @@ export function FeedScreen({ posts, toggleLike, toggleSave, compose, openComment
                 <button className="view-comments" onClick={() => openComments(post.id)}>View all {post.comments.length} comments</button>
               )}
               {post.comments.slice(-2).map((cm) => (
-                <p key={cm.id}><strong>{cm.author}</strong> {cm.text}</p>
+                <p key={cm.id}><strong>@{cm.handle}</strong> {cm.text}</p>
               ))}
             </div>
           )}
           <button className="add-comment-row" onClick={() => openComments(post.id)}>
-            <span className="author-avatar mini">AK</span> Add a comment
+            <span className="author-avatar mini">{ownInitials}</span> Add a comment
           </button>
         </article>
       ))}

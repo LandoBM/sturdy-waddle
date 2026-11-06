@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Location from 'expo-location'
 import * as TaskManager from 'expo-task-manager'
+import { activityTracksRoute, type ActivityKind } from './activityCatalog'
 import { calculateDistanceMeters, COMPLETION_POINTS } from './activityMetrics'
 
 export {
@@ -11,7 +12,7 @@ export {
   formatPace,
 } from './activityMetrics'
 
-export type ActivityKind = 'Hiking' | 'Running'
+export type { ActivityKind } from './activityCatalog'
 export type ActivityStatus = 'recording' | 'paused'
 
 export interface ActivityPoint {
@@ -42,10 +43,20 @@ export interface ActivityStore {
 
 export const ACTIVITY_LOCATION_TASK = 'outside-activity-location'
 const ACTIVITY_STORE_KEY = 'outside.activity-store.v1'
+const ACTIVE_ACTIVITY_USER_KEY = 'outside.activity-owner.v1'
+let activityUserId = 'anonymous'
 const emptyStore = (): ActivityStore => ({ active: null, history: [], points: 0 })
 
-export async function loadActivityStore(): Promise<ActivityStore> {
-  const raw = await AsyncStorage.getItem(ACTIVITY_STORE_KEY)
+export function setActivityUserId(userId: string | null) {
+  activityUserId = userId ?? 'anonymous'
+}
+
+function activityStoreKey(userId: string) {
+  return `${ACTIVITY_STORE_KEY}.${userId}`
+}
+
+export async function loadActivityStore(userId = activityUserId): Promise<ActivityStore> {
+  const raw = await AsyncStorage.getItem(activityStoreKey(userId))
   if (!raw) return emptyStore()
   const parsed: unknown = JSON.parse(raw)
   if (
@@ -65,8 +76,13 @@ export async function loadActivityStore(): Promise<ActivityStore> {
   }
 }
 
-async function saveActivityStore(store: ActivityStore) {
-  await AsyncStorage.setItem(ACTIVITY_STORE_KEY, JSON.stringify(store))
+async function saveActivityStore(store: ActivityStore, userId = activityUserId) {
+  await AsyncStorage.setItem(activityStoreKey(userId), JSON.stringify(store))
+  if (store.active) {
+    await AsyncStorage.setItem(ACTIVE_ACTIVITY_USER_KEY, userId)
+  } else if (await AsyncStorage.getItem(ACTIVE_ACTIVITY_USER_KEY) === userId) {
+    await AsyncStorage.removeItem(ACTIVE_ACTIVITY_USER_KEY)
+  }
 }
 
 function appendLocation(activity: RecordedActivity, location: Location.LocationObject) {
@@ -99,10 +115,12 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
     if (error) throw error
     const locations = data?.locations
     if (!locations?.length) return
-    const store = await loadActivityStore()
+    const userId = await AsyncStorage.getItem(ACTIVE_ACTIVITY_USER_KEY)
+    if (!userId) return
+    const store = await loadActivityStore(userId)
     if (!store.active || store.active.status !== 'recording') return
     const updated = locations.reduce(appendLocation, store.active)
-    if (updated !== store.active) await saveActivityStore({ ...store, active: updated })
+    if (updated !== store.active) await saveActivityStore({ ...store, active: updated }, userId)
   },
 )
 
@@ -111,17 +129,24 @@ export async function getActivityStore() {
 }
 
 export async function beginActivity(kind: ActivityKind) {
-  if (await Location.hasServicesEnabledAsync() === false) {
-    throw new Error('Turn on location services to record an activity.')
-  }
-  const foreground = await Location.requestForegroundPermissionsAsync()
-  if (foreground.status !== 'granted') throw new Error('Location permission is needed to record your route.')
-  const background = await Location.requestBackgroundPermissionsAsync()
-  if (background.status !== 'granted') {
-    throw new Error('Allow background location to keep recording while your screen is locked.')
+  const activeUserId = await AsyncStorage.getItem(ACTIVE_ACTIVITY_USER_KEY)
+  if (activeUserId && activeUserId !== activityUserId) {
+    throw new Error('Another signed-in account has an activity in progress. Sign in to that account and finish it first.')
   }
   const store = await loadActivityStore()
   if (store.active) throw new Error('Finish or discard your current activity before starting another.')
+  const tracksRoute = activityTracksRoute(kind)
+  if (tracksRoute) {
+    if (!(await Location.hasServicesEnabledAsync())) {
+      throw new Error('Turn on location services to record an activity.')
+    }
+    const foreground = await Location.requestForegroundPermissionsAsync()
+    if (foreground.status !== 'granted') throw new Error('Location permission is needed to record your route.')
+    const background = await Location.requestBackgroundPermissionsAsync()
+    if (background.status !== 'granted') {
+      throw new Error('Allow background location to keep recording while your screen is locked.')
+    }
+  }
 
   const now = Date.now()
   const activity: RecordedActivity = {
@@ -135,24 +160,26 @@ export async function beginActivity(kind: ActivityKind) {
     points: [],
   }
   await saveActivityStore({ ...store, active: activity })
-  try {
-    const registered = await TaskManager.isTaskRegisteredAsync(ACTIVITY_LOCATION_TASK)
-    if (registered) await Location.stopLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)
-    await Location.startLocationUpdatesAsync(ACTIVITY_LOCATION_TASK, {
-      accuracy: Location.Accuracy.High,
-      distanceInterval: 5,
-      timeInterval: 3000,
-      pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: true,
-      foregroundService: {
-        notificationTitle: 'Outside is recording your activity',
-        notificationBody: 'Location is used to measure your route, distance, and duration.',
-        killServiceOnDestroy: false,
-      },
-    })
-  } catch (error) {
-    await saveActivityStore({ ...store, active: null })
-    throw error
+  if (tracksRoute) {
+    try {
+      const registered = await TaskManager.isTaskRegisteredAsync(ACTIVITY_LOCATION_TASK)
+      if (registered) await Location.stopLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)
+      await Location.startLocationUpdatesAsync(ACTIVITY_LOCATION_TASK, {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 5,
+        timeInterval: 3000,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: 'FitHive is recording your activity',
+          notificationBody: 'Location is used to measure your route, distance, and duration.',
+          killServiceOnDestroy: false,
+        },
+      })
+    } catch (error) {
+      await saveActivityStore({ ...store, active: null })
+      throw error
+    }
   }
   return activity
 }
@@ -161,7 +188,7 @@ export async function pauseActivity() {
   const store = await loadActivityStore()
   const active = store.active
   if (!active || active.status !== 'recording') return active
-  if (await Location.hasStartedLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)) {
+  if (activityTracksRoute(active.kind) && await Location.hasStartedLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)) {
     await Location.stopLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)
   }
   const now = Date.now()
@@ -179,29 +206,34 @@ export async function resumeActivity() {
   const store = await loadActivityStore()
   const active = store.active
   if (!active || active.status !== 'paused') return active
-  const foreground = await Location.getForegroundPermissionsAsync()
-  const background = await Location.getBackgroundPermissionsAsync()
-  if (foreground.status !== 'granted' || background.status !== 'granted') {
-    throw new Error('Location permissions changed. Re-enable foreground and background access in Settings.')
+  const tracksRoute = activityTracksRoute(active.kind)
+  if (tracksRoute) {
+    const foreground = await Location.getForegroundPermissionsAsync()
+    const background = await Location.getBackgroundPermissionsAsync()
+    if (foreground.status !== 'granted' || background.status !== 'granted') {
+      throw new Error('Location permissions changed. Re-enable foreground and background access in Settings.')
+    }
   }
   const resumed: RecordedActivity = { ...active, status: 'recording', segmentStartedAt: Date.now() }
   await saveActivityStore({ ...store, active: resumed })
-  try {
-    await Location.startLocationUpdatesAsync(ACTIVITY_LOCATION_TASK, {
-      accuracy: Location.Accuracy.High,
-      distanceInterval: 5,
-      timeInterval: 3000,
-      pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: true,
-      foregroundService: {
-        notificationTitle: 'Outside is recording your activity',
-        notificationBody: 'Location is used to measure your route, distance, and duration.',
-        killServiceOnDestroy: false,
-      },
-    })
-  } catch (error) {
-    await saveActivityStore({ ...store, active })
-    throw error
+  if (tracksRoute) {
+    try {
+      await Location.startLocationUpdatesAsync(ACTIVITY_LOCATION_TASK, {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 5,
+        timeInterval: 3000,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: 'FitHive is recording your activity',
+          notificationBody: 'Location is used to measure your route, distance, and duration.',
+          killServiceOnDestroy: false,
+        },
+      })
+    } catch (error) {
+      await saveActivityStore({ ...store, active })
+      throw error
+    }
   }
   return resumed
 }
@@ -210,7 +242,7 @@ export async function finishActivity() {
   const store = await loadActivityStore()
   const active = store.active
   if (!active) return null
-  if (await Location.hasStartedLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)) {
+  if (activityTracksRoute(active.kind) && await Location.hasStartedLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)) {
     await Location.stopLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)
   }
   const now = Date.now()
@@ -237,7 +269,7 @@ export async function finishActivity() {
 
 export async function discardActivity() {
   const store = await loadActivityStore()
-  if (await Location.hasStartedLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)) {
+  if (store.active && activityTracksRoute(store.active.kind) && await Location.hasStartedLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)) {
     await Location.stopLocationUpdatesAsync(ACTIVITY_LOCATION_TASK)
   }
   await saveActivityStore({ ...store, active: null })

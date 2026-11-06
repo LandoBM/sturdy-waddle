@@ -19,14 +19,14 @@ const nav = [
   { id: 'schedule', label: 'Schedule' },
   { id: 'feed', label: 'Feed' },
   { id: 'search', label: 'Explore' },
-  { id: 'profile', label: 'Me' },
+  { id: 'profile', label: 'Profile' },
 ]
 
 const cheers = ['Love this!', 'Count me in next time.', 'Great energy, see you out there.', 'Yes! This is the vibe.']
 
 function PhoneContent() {
   const { push } = useNotifications()
-  const [tab, setTab] = useState('home')
+  const [tab, setTab] = useState('feed')
   const [sheetTrip, setSheetTrip] = useState(null)
   const [bookingTrip, setBookingTrip] = useState(null)
   const [reserved, setReserved] = useState(['t3', 't6'])
@@ -173,6 +173,7 @@ export default function App() {
     <main className="app-shell">
       <div className="desktop-note">
         <div className="brand-symbol"><span /><span /></div>
+        <div className="desktop-brand">FitHive</div>
         <p>Outside is better<br /><strong>together.</strong></p>
       </div>
       <div className="phone">

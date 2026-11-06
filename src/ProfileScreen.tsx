@@ -15,9 +15,9 @@ export function ProfileScreen({ myPosts, compose }: ProfileScreenProps) {
         <button className="icon-button" aria-label="Settings"><Icon name="menu" /></button>
       </div>
       <div className="profile-identity">
-        <div className="profile-avatar">AK<span /></div>
-        <h1>{ME.name}</h1>
-        <p>@{ME.handle} · Los Angeles, CA</p>
+        <div className="profile-avatar">{ME.handle.slice(0, 2).toUpperCase()}<span /></div>
+        <h1>@{ME.handle}</h1>
+        <p>Los Angeles, CA</p>
         <button className="outline-button">Edit profile</button>
       </div>
       <div className="stats">
@@ -26,7 +26,7 @@ export function ProfileScreen({ myPosts, compose }: ProfileScreenProps) {
         <div><strong>8</strong><span>Clubs</span></div>
       </div>
       <div className="profile-bio">
-        <span className="kicker">ABOUT ME</span>
+        <span className="kicker">ABOUT YOU</span>
         <p>Chasing views, good coffee, and better company. Usually outside by sunrise.</p>
       </div>
       <div className="achievement">

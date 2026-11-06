@@ -67,6 +67,7 @@ export interface Trip {
   weather: string
   tone: 'lime' | 'blue' | 'pink'
   personal?: boolean
+  eventDate?: string
   flights?: Flight[]
   airport?: Airport
   options?: FlightOption[]
@@ -193,6 +194,7 @@ export function createPersonalEvent(input: CustomEventInput): Trip {
     image: pic.trail,
     dayIndex: inWeek ? d - 17 : undefined,
     dateLabel: dt.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }),
+    eventDate: input.date,
     shortDay: dt.toLocaleDateString([], { weekday: 'short' }),
     shortDate: String(d).padStart(2, '0'),
     time: input.time ? formatClock(start) : 'All day',

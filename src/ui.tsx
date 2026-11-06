@@ -3,17 +3,15 @@ import { useMessages } from './messages'
 import { useNotifications } from './notifications'
 
 interface HeaderProps {
-  eyebrow?: string
   title: string
 }
 
-export function Header({ eyebrow, title }: HeaderProps) {
+export function Header({ title }: HeaderProps) {
   const { openInbox, unread } = useMessages()
   const { openNotifications, unread: noticeUnread } = useNotifications()
   return (
     <header className="topbar">
       <div>
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
       </div>
       <div className="header-actions">

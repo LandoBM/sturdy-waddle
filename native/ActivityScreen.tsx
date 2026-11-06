@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import Svg, { Circle, Polyline } from 'react-native-svg'
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
+import { activityCatalog, activityTracksRoute } from './activityCatalog'
+import { RouteMap } from './RouteMap'
 import {
   calculatePaceSecondsPerMile,
   COMPLETION_POINTS,
@@ -16,50 +17,6 @@ const muted = '#73776d'
 const lime = '#d9ff5a'
 const line = '#dedfd7'
 const white = '#ffffff'
-
-function RouteGraph({ activity }: { activity: RecordedActivity }) {
-  const points = activity.points
-  const coordinates = useMemo(() => {
-    if (points.length < 2) return ''
-    const latitudes = points.map((point) => point.latitude)
-    const longitudes = points.map((point) => point.longitude)
-    const minLat = Math.min(...latitudes)
-    const maxLat = Math.max(...latitudes)
-    const minLng = Math.min(...longitudes)
-    const maxLng = Math.max(...longitudes)
-    const latRange = maxLat - minLat || 0.00001
-    const lngRange = maxLng - minLng || 0.00001
-    return points.map((point) => {
-      const x = 12 + ((point.longitude - minLng) / lngRange) * 176
-      const y = 12 + (1 - (point.latitude - minLat) / latRange) * 96
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    }).join(' ')
-  }, [points])
-
-  if (!coordinates) {
-    return (
-      <View style={graphStyles.empty}>
-        <Ionicons name="navigate-outline" size={23} color={muted} />
-        <Text style={graphStyles.emptyText}>Route graph appears as GPS points arrive.</Text>
-      </View>
-    )
-  }
-  const first = coordinates.split(' ')[0].split(',')
-  const last = coordinates.split(' ').at(-1)!.split(',')
-  return (
-    <View style={graphStyles.container}>
-      <Svg width="100%" height={120} viewBox="0 0 200 120">
-        <Polyline points={coordinates} fill="none" stroke={lime} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={Number(first[0])} cy={Number(first[1])} r={5} fill={ink} />
-        <Circle cx={Number(last[0])} cy={Number(last[1])} r={5} fill="#e9516c" />
-      </Svg>
-      <View style={graphStyles.legend}>
-        <View style={graphStyles.legendEntry}><View style={[graphStyles.dot, { backgroundColor: ink }]} /><Text style={graphStyles.legendItem}>Start</Text></View>
-        <View style={graphStyles.legendEntry}><View style={[graphStyles.dot, { backgroundColor: '#e9516c' }]} /><Text style={graphStyles.legendItem}>Current</Text></View>
-      </View>
-    </View>
-  )
-}
 
 function Metric({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
@@ -86,13 +43,17 @@ export function ActivityScreen({
   onFinish: () => void
 }) {
   const [kind, setKind] = useState<ActivityKind>('Hiking')
+  const [activitySearch, setActivitySearch] = useState('')
   const active = store.active
+  const visibleActivities = useMemo(
+    () => activityCatalog.filter((item) => item.name.toLowerCase().includes(activitySearch.trim().toLowerCase())),
+    [activitySearch],
+  )
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>MOVE WITH PURPOSE</Text>
       <Text style={styles.title}>Activity tracker</Text>
-      <Text style={styles.description}>Record hikes and runs, follow your route, and earn points when you finish.</Text>
+      <Text style={styles.description}>Choose from outdoor, fitness, cardio, and sports activities. GPS maps are available for route-based activities.</Text>
 
       <View style={styles.rewardBanner}>
         <View style={styles.rewardIcon}><Ionicons name="trophy" size={21} color={ink} /></View>
@@ -112,14 +73,11 @@ export function ActivityScreen({
             <View style={[styles.recordingIndicator, active.status === 'paused' && styles.pausedIndicator]} />
           </View>
           <View style={styles.metricsRow}>
-            <Metric label="DISTANCE" value={formatActivityDistance(active.distanceMeters)} unit="mi" />
+            {activityTracksRoute(active.kind) && <Metric label="DISTANCE" value={formatActivityDistance(active.distanceMeters)} unit="mi" />}
             <Metric label="DURATION" value={formatActivityDuration(elapsedSeconds)} />
-            <Metric label="AVG PACE" value={formatPace(calculatePaceSecondsPerMile(active.distanceMeters, elapsedSeconds))} unit="/mi" />
+            {activityTracksRoute(active.kind) && <Metric label="AVG PACE" value={formatPace(calculatePaceSecondsPerMile(active.distanceMeters, elapsedSeconds))} unit="/mi" />}
           </View>
-          <View style={styles.graphCard}>
-            <Text style={styles.graphTitle}>Your route</Text>
-            <RouteGraph activity={active} />
-          </View>
+          {activityTracksRoute(active.kind) && <View style={styles.graphCard}><Text style={styles.graphTitle}>Your route</Text><RouteMap points={active.points} /></View>}
           <View style={styles.controls}>
             {active.status === 'recording' ? (
               <Pressable onPress={onPause} style={styles.pauseButton}>
@@ -137,28 +95,29 @@ export function ActivityScreen({
               <Text style={styles.finishText}>Finish activity</Text>
             </Pressable>
           </View>
-          <Text style={styles.backgroundNote}>GPS stays on in the background while recording. A system location indicator remains visible.</Text>
+          <Text style={styles.backgroundNote}>{activityTracksRoute(active.kind) ? 'GPS stays on in the background while recording. A system location indicator remains visible.' : 'This activity records your elapsed time without collecting location.'}</Text>
         </View>
       ) : (
         <View style={styles.startCard}>
           <Text style={styles.cardTitle}>Start an activity</Text>
-          <Text style={styles.cardDescription}>Choose what you are doing. Your route and stats stay on this device.</Text>
-          <View style={styles.kindSelector}>
-            {(['Hiking', 'Running'] as const).map((activityKind) => {
-              const selected = kind === activityKind
+          <Text style={styles.cardDescription}>Search the activity list, then start a timer. Route activities ask for location permission.</Text>
+          <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={muted} style={styles.searchInput} accessibilityLabel="Search activity types" />
+          <View style={styles.kindList}>
+            {visibleActivities.map((item) => {
+              const selected = kind === item.name
               return (
-                <Pressable key={activityKind} onPress={() => setKind(activityKind)} style={[styles.kindButton, selected && styles.kindSelected]}>
-                  <Ionicons name={activityKind === 'Running' ? 'walk' : 'trail-sign-outline'} size={19} color={ink} />
-                  <Text style={styles.kindText}>{activityKind}</Text>
+                <Pressable key={item.name} onPress={() => setKind(item.name)} style={[styles.kindButton, selected && styles.kindSelected]} accessibilityRole="radio" accessibilityState={{ selected }}>
+                  <Text style={[styles.kindText, selected && styles.selectedKindText]}>{item.name}</Text>
+                  {selected && <Ionicons name="checkmark-circle" size={16} color={ink} />}
                 </Pressable>
               )
             })}
           </View>
           <Pressable onPress={() => onStart(kind)} style={styles.startButton}>
-            <Ionicons name="navigate" size={18} color={ink} />
+            <Ionicons name={activityTracksRoute(kind) ? 'navigate' : 'time-outline'} size={18} color={ink} />
             <Text style={styles.startButtonText}>Start {kind.toLowerCase()}</Text>
           </Pressable>
-          <Text style={styles.permissionNote}>Background location permission is required so your activity can continue when your screen is locked. You can stop tracking at any time.</Text>
+          <Text style={styles.permissionNote}>{activityTracksRoute(kind) ? 'Background location permission keeps your route recording while the screen is locked.' : 'This activity records time only and does not request location access.'} You can stop tracking at any time.</Text>
         </View>
       )}
 
@@ -170,27 +129,17 @@ export function ActivityScreen({
         <View style={styles.emptyHistory}><Text style={styles.emptyHistoryText}>Your completed activities will show up here.</Text></View>
       ) : store.history.map((activity) => (
         <View key={activity.id} style={styles.historyCard}>
-          <View style={styles.historyIcon}><Ionicons name={activity.kind === 'Running' ? 'walk' : 'trail-sign-outline'} size={18} color={ink} /></View>
+          <View style={styles.historyIcon}><Ionicons name={activityTracksRoute(activity.kind) ? 'navigate-outline' : 'fitness-outline'} size={18} color={ink} /></View>
           <View style={styles.historyMain}>
             <Text style={styles.historyTitle}>{activity.kind}</Text>
             <Text style={styles.historyDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString()}</Text>
-            <Text style={styles.historyStats}>{formatActivityDistance(activity.distanceMeters)} mi · {formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
+            <Text style={styles.historyStats}>{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
           </View>
         </View>
       ))}
     </ScrollView>
   )
 }
-
-const graphStyles = StyleSheet.create({
-  container: { paddingTop: 6 },
-  empty: { height: 118, alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: '#f4f5ef', borderRadius: 13 },
-  emptyText: { color: muted, fontSize: 11 },
-  legend: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 5 },
-  legendEntry: { flexDirection: 'row', alignItems: 'center' },
-  legendItem: { color: muted, fontSize: 10, fontWeight: '600' },
-  dot: { width: 7, height: 7, borderRadius: 4, marginRight: 4 },
-})
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 19, paddingBottom: 32 },
@@ -224,10 +173,12 @@ const styles = StyleSheet.create({
   startCard: { backgroundColor: white, borderColor: line, borderWidth: 1, borderRadius: 21, padding: 16 },
   cardTitle: { color: ink, fontWeight: '800', fontSize: 17 },
   cardDescription: { color: muted, fontSize: 11, lineHeight: 17, marginTop: 5 },
-  kindSelector: { flexDirection: 'row', gap: 9, marginTop: 15 },
-  kindButton: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', height: 42, borderRadius: 14, backgroundColor: '#f0f1eb', borderWidth: 1, borderColor: '#f0f1eb' },
+  searchInput: { height: 42, borderRadius: 12, borderWidth: 1, borderColor: line, paddingHorizontal: 12, marginTop: 13, color: ink },
+  kindList: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
+  kindButton: { minHeight: 36, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 18, backgroundColor: '#f0f1eb', borderWidth: 1, borderColor: '#f0f1eb' },
   kindSelected: { backgroundColor: '#f5ffd5', borderColor: lime },
-  kindText: { color: ink, fontSize: 12, fontWeight: '700' },
+  kindText: { color: ink, fontSize: 10, fontWeight: '700' },
+  selectedKindText: { fontWeight: '800' },
   startButton: { height: 49, borderRadius: 25, backgroundColor: lime, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 13 },
   startButtonText: { color: ink, fontSize: 13, fontWeight: '800' },
   permissionNote: { color: muted, fontSize: 10, lineHeight: 15, marginTop: 11 },

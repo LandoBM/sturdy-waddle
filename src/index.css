@@ -161,9 +161,10 @@ h1, h2, h3, p { margin: 0; }
   .phone { height: min(900px, calc(100vh - 50px)); border: 8px solid #171914; border-radius: 52px; box-shadow: 0 35px 100px #31372a55, inset 0 0 0 2px #555; }
   .bottom-nav { border-radius: 0 0 42px 42px; }
   .desktop-note { display: block; align-self: center; }
-  .brand-symbol { width: 65px; height: 65px; position: relative; margin-bottom: 26px; }
+  .brand-symbol { width: 65px; height: 65px; position: relative; margin-bottom: 16px; }
   .brand-symbol span { position: absolute; width: 42px; height: 42px; border: 7px solid var(--ink); border-radius: 50% 50% 50% 8px; transform: rotate(45deg); }
   .brand-symbol span:last-child { border-color: var(--blue); left: 24px; top: 24px; }
+  .desktop-brand { font: 700 34px/1 Georgia, serif; letter-spacing: -.025em; margin-bottom: 12px; }
   .desktop-note p { font: 600 34px/1.08 'Manrope'; letter-spacing: -.05em; }.desktop-note strong { font-weight: 800; background: var(--lime); padding: 0 5px; }
 }
 

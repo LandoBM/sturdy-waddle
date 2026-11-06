@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Outside",
+    "name": "FitHive",
     "slug": "outside-fitapp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,7 +12,9 @@
     "android": {
       "package": "com.outside.fitapp",
       "permissions": [
+        "android.permission.CAMERA",
         "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_STEPS",
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_DISTANCE",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED"
@@ -22,16 +24,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Outside to attach photos to your posts.",
-          "cameraPermission": false,
+          "photosPermission": "Allow FitHive to choose photos for your profile and posts.",
+          "cameraPermission": "FitHive uses your camera when you choose to take a profile photo or attach a photo to a post.",
           "microphonePermission": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Outside uses your location while you record a hike or run.",
-          "locationAlwaysAndWhenInUsePermission": "Outside uses your location during an activity, including when the screen is locked, so your route and distance keep recording.",
+          "locationWhenInUsePermission": "FitHive uses your location while you record a hike or run.",
+          "locationAlwaysAndWhenInUsePermission": "FitHive uses your location during an activity, including when the screen is locked, so your route and distance keep recording.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
@@ -40,11 +42,12 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Outside imports completed workouts and related metrics that you choose to share from Apple Health.",
+          "NSHealthShareUsageDescription": "FitHive imports completed workouts and related metrics that you choose to share from Apple Health.",
           "NSHealthUpdateUsageDescription": false
         }
       ],
       "react-native-health-connect",
+      "@maplibre/maplibre-react-native",
       "./plugins/withHealthConnectQueries",
       [
         "expo-build-properties",

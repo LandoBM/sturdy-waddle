@@ -58,8 +58,8 @@ export function ComposeSheet({ joined, submit, close }: ComposeSheetProps) {
 
         <div className="compose-body">
           <div className="compose-author">
-            <span className="author-avatar">AK</span>
-            <div><strong>{ME.name}</strong><p>@{ME.handle}</p></div>
+            <span className="author-avatar">{ME.handle.slice(0, 2).toUpperCase()}</span>
+            <div><strong>@{ME.handle}</strong></div>
           </div>
 
           <textarea

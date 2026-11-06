@@ -91,7 +91,7 @@ export function ScheduleScreen({ items = [], joined = [], reserved = [], openTri
 
   return (
     <div className="screen">
-      <Header eyebrow="October 2026" title="Your schedule" />
+      <Header title="Your schedule" />
 
       <div className="schedule-view-toggle" role="tablist" aria-label="Schedule view">
         <button role="tab" aria-selected={view === 'week'} className={view === 'week' ? 'active' : ''} onClick={() => changeView('week')}>
