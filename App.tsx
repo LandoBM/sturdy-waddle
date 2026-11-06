@@ -1,4 +1,5 @@
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import './global.css'
 import './native/activity'
 import NativeApp from './native/App'
 

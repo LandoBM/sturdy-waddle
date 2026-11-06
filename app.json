@@ -7,7 +7,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.outside.fitapp",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FitHive uses your location while you record a hike or run.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "FitHive uses your location during an activity, including when the screen is locked, so your route and distance keep recording.",
+        "UIBackgroundModes": ["location"]
+      }
     },
     "android": {
       "package": "com.outside.fitapp",
@@ -29,6 +34,14 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "FitHive can access your photos when you choose to save a route card.",
+          "savePhotosPermission": "FitHive can save your route cards to your photo gallery."
+        }
+      ],
+      "expo-notifications",
       [
         "expo-location",
         {
