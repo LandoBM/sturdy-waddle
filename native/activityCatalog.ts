@@ -84,6 +84,11 @@ export const activityCatalog = [
 // valid local image intentionally use the visual fallback in ActivityScreen.
 export const sportAssetRegistry = {
   'Mountain Biking': require('../assets/auth-hero-mountain-bike.jpeg'),
+  Cycling: require('../assets/sports/road-cycling.png'),
+  'Road Cycling': require('../assets/sports/road-cycling.png'),
+  Snowboarding: require('../assets/sports/snowboarding.png'),
+  Skiing: require('../assets/sports/skiing.png'),
+  Surfing: require('../assets/sports/surfing.png'),
 } as const
 
 export type ActivityKind = (typeof activityCatalog)[number]['name']
