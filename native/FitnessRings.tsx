@@ -51,7 +51,7 @@ export function FitnessRings({ values, compact = false, variant = 'default', dar
         <SvgText x="110" y="106" textAnchor="middle" fill={foreground} fontSize={compact ? 18 : 21} fontWeight="800">{Math.round(values.exercise)}</SvgText>
         <SvgText x="110" y="124" textAnchor="middle" fill={muted} fontSize="10">exercise min</SvgText>
       </Svg>
-      <View className="mt-1 w-full flex-row justify-around">
+      {variant !== 'dashboard' && <View className="mt-1 w-full flex-row justify-around">
         {ringDefinitions.map((ring) => (
           <View key={ring.key} className="items-center px-1">
             <View className="mb-1 h-2 w-2 rounded-full" style={{ backgroundColor: ring.color }} />
@@ -59,7 +59,7 @@ export function FitnessRings({ values, compact = false, variant = 'default', dar
             <Text style={{ color: muted, fontSize: 9, marginTop: 2 }}>{ring.label}</Text>
           </View>
         ))}
-      </View>
+      </View>}
     </View>
   )
 }

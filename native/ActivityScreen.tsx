@@ -3,9 +3,9 @@ import * as MediaLibrary from 'expo-media-library'
 import { useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { useColorScheme } from 'nativewind'
 import Svg, { Circle, Polyline } from 'react-native-svg'
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
-import { activityCatalog, activityTracksRoute } from './activityCatalog'
+import { activityCatalog, activityTracksRoute, sportAssetRegistry } from './activityCatalog'
 import { RouteMap } from './RouteMap'
 import { FitnessRings, type FitnessRingValues } from './FitnessRings'
 import { ActivityTrendChart } from './ActivityTrendChart'
@@ -22,6 +22,67 @@ const muted = '#68736B'
 const accent = '#FF7900'
 const line = '#E3E6DF'
 const white = '#ffffff'
+const featuredSportKinds: ActivityKind[] = ['Mountain Biking', 'Snowboarding', 'Skiing', 'Surfing', 'Rock Climbing', 'Kayaking']
+
+function sportVisual(kind: string) {
+  const normalized = kind.toLowerCase()
+  const image = sportAssetRegistry[kind as keyof typeof sportAssetRegistry]
+  if (normalized.includes('bike') || normalized.includes('cycl')) {
+    return { icon: 'bicycle-outline' as const, label: 'Ride', tint: '#FF7900', image }
+  }
+  if (normalized.includes('snowboard')) {
+    return { icon: 'snow-outline' as const, label: 'Snowboard', tint: '#8ABFE7', image }
+  }
+  if (normalized.includes('ski') || normalized.includes('snowshoe')) {
+    return { icon: 'snow-outline' as const, label: 'Snow', tint: '#9CC7E8', image }
+  }
+  if (normalized.includes('surf') || normalized.includes('kayak') || normalized.includes('paddle') || normalized.includes('swim')) {
+    return { icon: 'water-outline' as const, label: 'Water', tint: '#6FB7C9', image }
+  }
+  if (normalized.includes('climb') || normalized.includes('boulder')) {
+    return { icon: 'fitness-outline' as const, label: 'Climb', tint: '#D8A56A' }
+  }
+  if (normalized.includes('skate') || normalized.includes('hockey')) {
+    return { icon: 'snow-outline' as const, label: 'Glide', tint: '#B8D6E8' }
+  }
+  if (normalized.includes('martial') || normalized.includes('boxing') || normalized.includes('kickboxing') || normalized.includes('jiu-jitsu') || normalized.includes('capoeira')) {
+    return { icon: 'flash-outline' as const, label: 'Combat', tint: '#E98A72' }
+  }
+  if (normalized.includes('parkour') || normalized.includes('calisthenics')) {
+    return { icon: 'body-outline' as const, label: 'Flow', tint: '#B68AE8' }
+  }
+  if (normalized.includes('tennis') || normalized.includes('pickleball') || normalized.includes('badminton') || normalized.includes('racquet')) {
+    return { icon: 'tennisball-outline' as const, label: 'Racquet', tint: '#A7C957' }
+  }
+  if (normalized.includes('basketball') || normalized.includes('soccer') || normalized.includes('volleyball') || normalized.includes('lacrosse') || normalized.includes('rugby') || normalized.includes('cricket') || normalized.includes('frisbee') || normalized.includes('golf')) {
+    return { icon: 'football-outline' as const, label: 'Field', tint: '#79B77A' }
+  }
+  if (normalized.includes('run') || normalized.includes('walk')) {
+    return { icon: 'walk-outline' as const, label: 'Move', tint: '#FFB067' }
+  }
+  return { icon: 'navigate-outline' as const, label: 'Explore', tint: '#75B9A2' }
+}
+
+function SportVisual({ kind, dark, compact = false }: { kind: string; dark: boolean; compact?: boolean }) {
+  const visual = sportVisual(kind)
+  return (
+    <View style={[styles.sportVisual, compact && styles.sportVisualCompact, { borderColor: dark ? '#2B332D' : '#E7EAE4' }]}>
+      <View style={[styles.absoluteFill, { backgroundColor: dark ? '#111812' : '#EAF0EA' }]} />
+      {visual.image ? <Image source={visual.image} resizeMode="contain" style={[styles.absoluteFill, styles.sportVisualImage]} /> : null}
+      <View style={[styles.absoluteFill, styles.sportVisualShade, { backgroundColor: visual.image ? 'rgba(4,8,6,0.32)' : `${visual.tint}22` }]} />
+      <View style={styles.sportVisualContent}>
+        <View style={[styles.sportVisualIcon, { backgroundColor: `${visual.tint}DD` }]}>
+          <Ionicons name={visual.icon} size={compact ? 18 : 24} color="#FFFFFF" />
+        </View>
+        <View>
+          <Text style={styles.sportVisualEyebrow}>FEATURED DISCIPLINE</Text>
+          <Text style={styles.sportVisualTitle}>{kind}</Text>
+          <Text style={styles.sportVisualSubtitle}>{visual.label} beyond ordinary.</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
 const { captureRef } = require('react-native-view-shot') as {
   captureRef: (target: any, options: Record<string, unknown>) => Promise<string>
 }
@@ -160,8 +221,10 @@ export function ActivityScreen({
   return (
     <View style={{ flex: 1, backgroundColor: background }}>
     <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={{ backgroundColor: background }} contentContainerClassName="px-[18px] pb-32 pt-5">
-      <Text style={[styles.title, { color: foreground }]}>Track your movement.</Text>
-      <Text style={[styles.description, { color: secondary }]}>Every move counts. Make yours matter.</Text>
+      <View style={styles.trackHeader}>
+        <View><Text style={[styles.eyebrow, { color: accent }]}>FITHIVE TRACK</Text><Text style={[styles.title, { color: foreground }]}>Today’s movement</Text><Text style={[styles.description, { color: secondary }]}>Every move counts. Make yours matter.</Text></View>
+        <Pressable style={[styles.headerAction, { backgroundColor: surface, borderColor }]} accessibilityLabel="Activity tracking information"><Ionicons name="information-outline" size={19} color={foreground} /></Pressable>
+      </View>
 
       <View style={[styles.rewardBanner, { backgroundColor: dark ? '#2A1D14' : '#FFF4EB', borderColor: dark ? '#6C4325' : '#FFD1B3' }]}>
         <View style={[styles.rewardIcon, { backgroundColor: '#FF7900' }]}><Ionicons name="trophy" size={21} color="#FFFFFF" /></View>
@@ -172,8 +235,8 @@ export function ActivityScreen({
       </View>
 
       <View style={[styles.dashboardCard, { backgroundColor: surface, borderColor }]}> 
-        <Text style={[styles.cardTitle, { color: foreground }]}>Today’s activity</Text>
-        <Text style={[styles.cardDescription, { color: secondary }]}>{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+        <View style={styles.dashboardHeader}><View><Text style={[styles.cardTitle, { color: foreground }]}>Today’s activity</Text><Text style={[styles.cardDescription, { color: secondary }]}>{new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</Text></View><View style={[styles.todayPill, { backgroundColor: dark ? '#2B332D' : '#F5F6F2' }]}><View style={styles.liveDot} /><Text style={[styles.todayPillText, { color: secondary }]}>LIVE</Text></View></View>
+        <SportVisual kind={active?.kind ?? 'Mountain Biking'} dark={dark} />
         <View style={styles.dashboardBody}>
           <FitnessRings values={ringMetrics} compact variant="dashboard" darkMode={dark} />
           <View style={styles.dashboardMetrics}>
@@ -251,6 +314,16 @@ export function ActivityScreen({
               <Pressable onPress={() => setPickerVisible(false)} style={[styles.pickerClose, { backgroundColor: dark ? '#222622' : '#E7EAE4' }]} accessibilityLabel="Close activity picker"><Ionicons name="close" size={22} color={foreground} /></Pressable>
             </View>
             <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={secondary} style={[styles.searchInput, { color: foreground, backgroundColor: dark ? '#0F1511' : '#FBFDF9', borderColor }]} accessibilityLabel="Search activity types" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredSports} keyboardShouldPersistTaps="handled">
+              {featuredSportKinds.map((featuredKind) => {
+                const selected = kind === featuredKind
+                const visual = sportVisual(featuredKind)
+                return <Pressable key={featuredKind} onPress={() => setKind(featuredKind)} style={[styles.featuredSport, { backgroundColor: selected ? accent : (dark ? '#222622' : '#F5F6F2'), borderColor: selected ? accent : borderColor }]} accessibilityRole="button" accessibilityLabel={`Choose ${featuredKind}`}>
+                  <Ionicons name={visual.icon} size={16} color={selected ? '#FFFFFF' : visual.tint} />
+                  <Text style={[styles.featuredSportText, { color: selected ? '#FFFFFF' : foreground }]}>{featuredKind}</Text>
+                </Pressable>
+              })}
+            </ScrollView>
             <View style={styles.kindList}>
               {visibleActivities.map((item) => {
                 const selected = kind === item.name
@@ -303,7 +376,10 @@ export function ActivityScreen({
 }
 
 const styles = StyleSheet.create({
+  absoluteFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   content: { paddingHorizontal: 18, paddingTop: 19, paddingBottom: 32, backgroundColor: '#F5F6F2' },
+  trackHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 },
+  headerAction: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
   eyebrow: { color: muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
   title: { color: ink, fontSize: 29, lineHeight: 36, fontWeight: '800', letterSpacing: -1, marginTop: 3 },
   description: { color: muted, fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 17 },
@@ -335,12 +411,28 @@ const styles = StyleSheet.create({
   cardTitle: { color: ink, fontWeight: '800', fontSize: 17 },
   cardDescription: { color: muted, fontSize: 11, lineHeight: 17, marginTop: 5 },
   searchInput: { height: 46, borderRadius: 16, borderWidth: 1, borderColor: line, paddingHorizontal: 12, marginTop: 13, color: ink, backgroundColor: '#FBFDF9' },
+  featuredSports: { gap: 8, paddingTop: 12, paddingBottom: 2 },
+  featuredSport: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1 },
+  featuredSportText: { fontSize: 10, fontWeight: '800' },
   kindList: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
   kindButton: { minHeight: 44, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, backgroundColor: '#F5F6F2', borderWidth: 1, borderColor: line },
   kindSelected: { backgroundColor: '#FF7900', borderColor: '#FF7900' },
   kindText: { color: ink, fontSize: 10, fontWeight: '700' },
   selectedKindText: { fontWeight: '800' },
   dashboardCard: { backgroundColor: white, borderColor: line, borderWidth: 1, borderRadius: 26, padding: 16, shadowColor: '#171C19', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 15, elevation: 3 },
+  dashboardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  sportVisual: { height: 142, borderRadius: 21, overflow: 'hidden', borderWidth: 1, marginTop: 14 },
+  sportVisualCompact: { height: 88, marginTop: 10 },
+  sportVisualImage: { opacity: 0.9 },
+  sportVisualShade: { opacity: 1 },
+  sportVisualContent: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 14 },
+  sportVisualIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  sportVisualEyebrow: { color: 'rgba(255,255,255,0.72)', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  sportVisualTitle: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', marginTop: 2 },
+  sportVisualSubtitle: { color: 'rgba(255,255,255,0.82)', fontSize: 10, marginTop: 2 },
+  todayPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: accent },
+  todayPillText: { fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
   dashboardBody: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   dashboardMetrics: { flex: 1, gap: 13, paddingLeft: 4 },
   floatingStartButton: { position: 'absolute', right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF7900', shadowColor: '#FF7900', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },

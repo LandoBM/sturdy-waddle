@@ -11,6 +11,12 @@ describe('activity catalog', () => {
     expect(names).toContain('Muay Thai')
     expect(names).toContain('Hiking')
     expect(names).toContain('Running')
+    expect(names).toContain('Snowboarding')
+    expect(names).toContain('Skiing')
+    expect(names).toContain('Rock Climbing')
+    expect(names).toContain('Bouldering')
+    expect(names).toContain('Kitesurfing')
+    expect(names).toContain('Parkour')
   })
 
   it('requests GPS only for route-based activities', () => {
@@ -18,5 +24,7 @@ describe('activity catalog', () => {
     expect(activityTracksRoute('Running')).toBe(true)
     expect(activityTracksRoute('Pilates')).toBe(false)
     expect(activityTracksRoute('Traditional Fitness')).toBe(false)
+    expect(activityTracksRoute('Cross-country Skiing')).toBe(true)
+    expect(activityTracksRoute('Kitesurfing')).toBe(false)
   })
 })

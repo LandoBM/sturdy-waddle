@@ -57,18 +57,43 @@ export const activityCatalog = [
   { name: 'Inline Skating', category: 'Outdoor', tracksRoute: true },
   { name: 'Orienteering', category: 'Outdoor', tracksRoute: true },
   { name: 'Snowshoeing', category: 'Outdoor', tracksRoute: true },
+  { name: 'Cross-country Skiing', category: 'Outdoor', tracksRoute: true },
+  { name: 'Skate Skiing', category: 'Outdoor', tracksRoute: true },
   { name: 'Paddle Tennis', category: 'Sports', tracksRoute: false },
   { name: 'Martial Arts', category: 'Sports', tracksRoute: false },
+  { name: 'Parkour', category: 'Sports', tracksRoute: false },
+  { name: 'Lacrosse', category: 'Sports', tracksRoute: false },
+  { name: 'Cricket', category: 'Sports', tracksRoute: false },
+  { name: 'Racquetball', category: 'Sports', tracksRoute: false },
+  { name: 'Disc Golf', category: 'Sports', tracksRoute: false },
+  { name: 'Ice Hockey', category: 'Sports', tracksRoute: false },
+  { name: 'Figure Skating', category: 'Sports', tracksRoute: false },
+  { name: 'Bouldering', category: 'Outdoor', tracksRoute: false },
   { name: 'Rock Climbing', category: 'Outdoor', tracksRoute: false },
   { name: 'Kayaking', category: 'Outdoor', tracksRoute: false },
   { name: 'Paddleboarding', category: 'Outdoor', tracksRoute: false },
+  { name: 'Windsurfing', category: 'Outdoor', tracksRoute: false },
+  { name: 'Kitesurfing', category: 'Outdoor', tracksRoute: false },
+  { name: 'Surfing', category: 'Outdoor', tracksRoute: false },
   { name: 'Skiing', category: 'Outdoor', tracksRoute: false },
   { name: 'Snowboarding', category: 'Outdoor', tracksRoute: false },
   { name: 'Other', category: 'Other', tracksRoute: false },
 ] as const
 
+// Keep local sport artwork in one place so featured activity UI cannot drift
+// from the assets that are actually checked into the app bundle.
+export const sportAssetRegistry = {
+  'Mountain Biking': require('../assets/sports/mountain-biking.png'),
+  'Snowboarding': require('../assets/sports/snowboarding.png'),
+  'Skiing': require('../assets/sports/skiing.png'),
+  'Surfing': require('../assets/sports/surfing.png'),
+} as const
+
 export type ActivityKind = (typeof activityCatalog)[number]['name']
 
-export function activityTracksRoute(kind: ActivityKind) {
+// UI values can come from text inputs, persisted data, or an in-progress
+// restyling pass before they are narrowed to ActivityKind. Unknown values are
+// treated as non-route activities instead of causing a type error.
+export function activityTracksRoute(kind: string): boolean {
   return activityCatalog.find((activity) => activity.name === kind)?.tracksRoute ?? false
 }
