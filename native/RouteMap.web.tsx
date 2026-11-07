@@ -2,9 +2,9 @@ import { StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Polyline } from 'react-native-svg'
 import type { ActivityPoint } from './activity'
 
-export function RouteMap({ points }: { points: ActivityPoint[] }) {
+export function RouteMap({ points, darkMode = false }: { points: ActivityPoint[]; darkMode?: boolean }) {
   if (points.length < 2) {
-    return <View style={styles.empty}><Text style={styles.text}>A route map will appear after GPS points are recorded on a mobile device.</Text></View>
+    return <View style={[styles.empty, { backgroundColor: darkMode ? '#171C19' : '#F5F6F2' }]}><Text style={[styles.text, { color: darkMode ? '#A9B3A9' : '#68736B' }]}>A route map will appear after GPS points are recorded on a mobile device.</Text></View>
   }
   const minLatitude = Math.min(...points.map((point) => point.latitude))
   const maxLatitude = Math.max(...points.map((point) => point.latitude))
@@ -21,11 +21,11 @@ export function RouteMap({ points }: { points: ActivityPoint[] }) {
   const end = coordinates.split(' ').at(-1)!.split(',')
 
   return (
-    <View style={styles.map}>
+    <View style={[styles.map, { backgroundColor: darkMode ? '#222622' : '#FFFFFF' }]}>
       <Svg width="100%" height={140} viewBox="0 0 200 120">
-        <Polyline points={coordinates} fill="none" stroke="#d9ff5a" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={Number(start[0])} cy={Number(start[1])} r={5} fill="#151712" />
-        <Circle cx={Number(end[0])} cy={Number(end[1])} r={5} fill="#e9516c" />
+        <Polyline points={coordinates} fill="none" stroke="#FF7900" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx={Number(start[0])} cy={Number(start[1])} r={5} fill="#FF7900" />
+        <Circle cx={Number(end[0])} cy={Number(end[1])} r={5} fill="#FFB067" />
       </Svg>
     </View>
   )

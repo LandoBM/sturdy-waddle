@@ -1,15 +1,18 @@
 import MapView, { Marker, Polyline } from 'react-native-maps'
 import { StyleSheet, Text, View } from 'react-native'
 import type { ActivityPoint } from './activity'
+import { useColorScheme } from 'nativewind'
 
-export function RouteMap({ points }: { points: ActivityPoint[] }) {
+export function RouteMap({ points, darkMode }: { points: ActivityPoint[]; darkMode?: boolean }) {
+  const { colorScheme } = useColorScheme()
+  const dark = darkMode ?? colorScheme === 'dark'
   const latest = points[points.length - 1]
 
   if (!latest) {
     return (
-      <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>Waiting for GPS</Text>
-        <Text style={styles.noticeText}>The map will center on your first recorded location.</Text>
+      <View style={[styles.notice, { backgroundColor: dark ? '#171C19' : '#F5F6F2' }]}>
+        <Text style={[styles.noticeTitle, { color: dark ? '#F8FAF7' : '#171C19' }]}>Waiting for GPS</Text>
+        <Text style={[styles.noticeText, { color: dark ? '#A9B3A9' : '#68736B' }]}>The map will center on your first recorded location.</Text>
       </View>
     )
   }
@@ -17,9 +20,9 @@ export function RouteMap({ points }: { points: ActivityPoint[] }) {
 
   return (
     <MapView style={styles.map} region={region} mapType="standard">
-      {points.length > 1 && <Polyline coordinates={points} strokeColor="#d9ff5a" strokeWidth={5} />}
-      {!!points.length && <Marker coordinate={points[0]} title="Start" pinColor="#151712" />}
-      {!!latest && points.length > 1 && <Marker coordinate={latest} title="Current location" pinColor="#e9516c" />}
+      {points.length > 1 && <Polyline coordinates={points} strokeColor="#FF7900" strokeWidth={5} />}
+      {!!points.length && <Marker coordinate={points[0]} title="Start" pinColor="#FF7900" />}
+      {!!latest && points.length > 1 && <Marker coordinate={latest} title="Current location" pinColor="#FFB067" />}
     </MapView>
   )
 }

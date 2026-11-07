@@ -4,6 +4,8 @@
   "private": true,
   "main": "expo/AppEntry",
   "dependencies": {
+    "@expo-google-fonts/exo-2": "^0.4.2",
+    "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/pacifico": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@kingstinct/react-native-healthkit": "^16.2.0",
@@ -15,6 +17,7 @@
     "expo-build-properties": "~58.0.12",
     "expo-dev-client": "~58.0.18",
     "expo-image-picker": "~58.0.10",
+    "expo-linear-gradient": "~58.0.3",
     "expo-location": "~58.0.20",
     "expo-media-library": "~58.0.13",
     "expo-notifications": "~58.1.8",

@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
+import { Exo2_800ExtraBold_Italic } from '@expo-google-fonts/exo-2'
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Pacifico_400Regular } from '@expo-google-fonts/pacifico'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as ImagePicker from 'expo-image-picker'
@@ -17,7 +19,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,6 +30,12 @@ import { areas, clubById, clubs, distanceBetweenCoordinates, media, type Categor
 import { seedPosts, type Post } from '../src/posts'
 import { driveMinutes, formatDuration, tripById, trips, type Trip } from '../src/trips'
 import { ActivityScreen } from './ActivityScreen'
+import { FeedScreen, PostCard } from './FeedScreen'
+import { ClubsScreen } from './ClubsScreen'
+import { ExploreScreen } from './ExploreScreen'
+import { ScheduleScreen } from './ScheduleScreen'
+import { ProfileScreen } from './ProfileScreen'
+import { SettingsScreen } from './SettingsScreen'
 import { FitnessRings, type FitnessRingValues } from './FitnessRings'
 import { AuthScreen } from './AuthScreen'
 import { OwnerAccessScreen } from './OwnerAccessScreen'
@@ -124,14 +131,14 @@ interface FlightStatus {
 }
 
 const colors = {
-  ink: '#151712',
-  muted: '#73776d',
-  paper: '#f4f5ef',
+  ink: '#171C19',
+  muted: '#68736B',
+  paper: '#F5F6F2',
   white: '#ffffff',
-  lime: '#d9ff5a',
+  lime: '#FF7900',
   blue: '#5c78ff',
   pink: '#ff8fa4',
-  line: '#dedfd7',
+  line: '#E3E6DF',
 }
 
 const tabs: { id: Tab; label: string; icon: IconName }[] = [
@@ -141,6 +148,13 @@ const tabs: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'explore', label: 'Explore', icon: 'compass-outline' },
   { id: 'profile', label: 'Profile', icon: 'person-outline' },
 ]
+
+const activeTabIcons: Partial<Record<Tab, IconName>> = {
+  home: 'people',
+  activity: 'navigate',
+  feed: 'heart',
+  explore: 'compass',
+}
 
 const categories: ('All' | Category)[] = [
   'All',
@@ -206,9 +220,8 @@ function SectionTitle({ title, action, onPress }: { title: string; action?: stri
 
 function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number; joined: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[28px] border border-[#dfe7d9] bg-white shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
-      <Image source={{ uri: club.image }} style={styles.clubImage} />
-      <View style={styles.clubImageShade} />
+    <Pressable onPress={onPress} className="mb-4 overflow-hidden rounded-[26px] border border-[#E3E6DF] bg-white shadow-lg dark:border-[#2B332D] dark:bg-[#171C19]">
+      {club.image ? <><Image source={{ uri: club.image }} style={styles.clubImage} /><View style={styles.clubImageShade} /></> : <View style={[styles.clubImage, styles.clubImageFallback]}><AppIcon name="people-outline" size={34} color="#FF7900" /><Text style={styles.clubImageFallbackText}>{club.category}</Text></View>}
       <View style={styles.categoryBadge} className="rounded-full border border-white/70 bg-white/95 px-3 py-1.5"><Text style={styles.categoryBadgeText} className="tracking-[0.8px]">{club.category.toUpperCase()}</Text></View>
       {joined && <View style={styles.joinedBadge} className="rounded-full border border-accent-300 bg-accent-200 px-2.5 py-1.5"><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
       <View className="p-4">
@@ -216,7 +229,7 @@ function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number;
         <Text className="text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]" numberOfLines={2}>{club.mission}</Text>
         <View className="mt-3 flex-row justify-between">
           <View className="flex-row items-center gap-1.5"><AppIcon name="people-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{club.members.toLocaleString()} members</Text></View>
-          <View className="flex-row items-center gap-1.5"><AppIcon name="location-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{miles} mi</Text></View>
+          <View className="flex-row items-center gap-1.5"><AppIcon name="location-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{miles} mi · {club.zip}</Text></View>
         </View>
       </View>
     </Pressable>
@@ -266,71 +279,22 @@ function tripDateKey(trip: Trip) {
   return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${dateParts[2].padStart(2, '0')}`
 }
 
-function PostCard({
-  post,
-  photoUri,
-  onLike,
-  onSave,
-  onComments,
-  following,
-  onToggleFollow,
-}: {
-  post: Post
-  photoUri?: string | null
-  onLike: () => void
-  onSave: () => void
-  onComments: () => void
-  following?: boolean
-  onToggleFollow?: () => void
-}) {
-  return (
-    <View className="mb-4 rounded-[26px] border-0 bg-white p-4 shadow-lg dark:bg-[#132018]">
-      <View className="mb-4 flex-row items-center gap-2.5">
-        <Avatar name={post.handle} size={40} photoUri={post.mine ? photoUri : post.avatarUrl} />
-        <View className="flex-1">
-          <Text className="text-xs font-extrabold text-ink dark:text-[#f3f7f0]">@{post.handle}{post.mine ? '  ·  You' : ''}</Text>
-          <Text className="mt-0.5 text-[10px] text-slate-500 dark:text-[#9eafa2]">{post.club ? `${post.club} · ` : ''}{post.time}</Text>
-        </View>
-        {!post.mine && onToggleFollow && <Pressable onPress={onToggleFollow} className="min-h-[36px] items-center justify-center rounded-full border border-accent-200 bg-transparent px-3" accessibilityRole="button" accessibilityLabel={following ? `Unfollow @${post.handle}` : `Follow @${post.handle}`}>
-          <Text className="text-[10px] font-extrabold text-ink dark:text-[#d9ff5a]">{following ? 'Following' : 'Follow'}</Text>
-        </Pressable>}
-        <Pressable accessibilityLabel="More post options" hitSlop={8} className="h-11 w-11 items-center justify-center"><AppIcon name="ellipsis-horizontal" color={colors.muted} /></Pressable>
-      </View>
-      {!!post.text && <Text className="mb-3.5 text-[15px] font-medium leading-[22px] text-ink dark:text-[#f3f7f0]">{post.text}</Text>}
-      {!!post.image && <Image source={{ uri: post.image }} className="h-[230px] w-full rounded-[15px] bg-slate-200 dark:bg-[#1b2c22]" />}
-      {!!post.location && <Text className="mt-2 flex-row items-center text-xs text-slate-500 dark:text-[#9eafa2]"><AppIcon name="location-outline" size={14} color={colors.muted} />  {post.location}</Text>}
-      <View className="mt-4 flex-row items-center gap-5 border-t border-[#edf0e7] pt-3 dark:border-[#294032]">
-        <Pressable onPress={onLike} className="min-h-[44px] flex-row items-center gap-1.5 px-1" accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike post' : 'Like post'}>
-          <AppIcon name={post.liked ? 'heart' : 'heart-outline'} color={post.liked ? '#e9516c' : colors.ink} />
-          <Text className="text-xs font-semibold text-ink dark:text-[#dce8dd]">{post.likes}</Text>
-        </Pressable>
-        <Pressable onPress={onComments} className="min-h-[44px] flex-row items-center gap-1.5 px-1" accessibilityLabel="View comments">
-          <AppIcon name="chatbubble-outline" />
-          <Text className="text-xs font-semibold text-ink dark:text-[#dce8dd]">{post.comments.length}</Text>
-        </Pressable>
-        <View className="flex-1" />
-        <Pressable onPress={onSave} className="min-h-[44px] w-11 items-center justify-center" accessibilityLabel={post.saved ? 'Unsave post' : 'Save post'}>
-          <AppIcon name={post.saved ? 'bookmark' : 'bookmark-outline'} color={post.saved ? colors.blue : colors.ink} />
-        </Pressable>
-      </View>
-      {!!post.comments.length && (
-        <Pressable onPress={onComments} className="mt-2.5">
-          <Text className="text-[11px] leading-4 text-ink dark:text-[#c6d5c8]" numberOfLines={2}>
-            <Text className="font-extrabold">@{post.comments[post.comments.length - 1].handle} </Text>
-            {post.comments[post.comments.length - 1].text}
-          </Text>
-        </Pressable>
-      )}
-    </View>
-  )
-}
-
 export default function NativeApp() {
-  const [fontsLoaded] = useFonts({ Pacifico_400Regular })
+  const [fontsLoaded] = useFonts({
+    Pacifico_400Regular,
+    Exo2_800ExtraBold_Italic,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  })
   const { colorScheme, setColorScheme } = useColorScheme()
   const insets = useSafeAreaInsets()
   const [tab, setTab] = useState<Tab>('feed')
   const [refreshingFeed, setRefreshingFeed] = useState(false)
+  const [feedLoading, setFeedLoading] = useState(false)
+  const [feedError, setFeedError] = useState('')
+  const [feedReloadKey, setFeedReloadKey] = useState(0)
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [ownerStatus, setOwnerStatus] = useState<OwnerStatus>('none')
@@ -346,6 +310,7 @@ export default function NativeApp() {
   const [accountSettingsError, setAccountSettingsError] = useState('')
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [appearancePreference, setAppearancePreference] = useState<AppearancePreference>('system')
+  const [appearanceReady, setAppearanceReady] = useState(false)
   const [editingProfile, setEditingProfile] = useState(false)
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editUsername, setEditUsername] = useState('')
@@ -390,13 +355,22 @@ export default function NativeApp() {
   const [clock, setClock] = useState(Date.now())
 
   useEffect(() => {
-    AsyncStorage.getItem('fithive.appearance').then((stored) => {
-      const preference: AppearancePreference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
-      setAppearancePreference(preference)
-      setColorScheme(preference)
-    }).catch(() => {
-      setColorScheme('system')
-    })
+    let active = true
+    const restoreAppearance = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('fithive.appearance')
+        const preference: AppearancePreference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+        if (!active) return
+        setAppearancePreference(preference)
+        setColorScheme(preference)
+      } catch {
+        if (active) setColorScheme('system')
+      } finally {
+        if (active) setAppearanceReady(true)
+      }
+    }
+    void restoreAppearance()
+    return () => { active = false }
   }, [setColorScheme])
 
   const changeAppearance = (preference: AppearancePreference) => {
@@ -404,6 +378,28 @@ export default function NativeApp() {
     setColorScheme(preference)
     void AsyncStorage.setItem('fithive.appearance', preference)
   }
+  const beginProfileEdit = () => {
+    setEditDisplayName(profileName)
+    setEditUsername(accountUsername)
+    setEditAvatarUri(profileAvatarUrl)
+    setEditAvatarMimeType('image/jpeg')
+    setAvatarChanged(false)
+    setEditBio(profileBio)
+    setProfileError('')
+    setSettingsVisible(false)
+    setEditingProfile(true)
+  }
+  // NativeWind remains the styling system, while this effective value keeps
+  // native children synchronized during immediate appearance changes.
+  const isDark = appearancePreference === 'dark' || (appearancePreference === 'system' && colorScheme === 'dark')
+  const themeBackground = isDark ? '#080B09' : '#F5F6F2'
+  const themeSurface = isDark ? '#171C19' : '#FFFFFF'
+  const themeText = isDark ? '#F8FAF7' : '#171C19'
+  const themeMuted = isDark ? '#A9B3A9' : '#68736B'
+  const themeBorder = isDark ? '#2B342F' : '#E3E6DF'
+  const dark = isDark
+  const foreground = themeText
+  const settingsSurface = { backgroundColor: themeSurface, borderColor: themeBorder }
   const [importedWorkouts, setImportedWorkouts] = useState<ImportedWorkout[]>([])
   const [healthProvider, setHealthProvider] = useState<string | null>(null)
   const [syncingHealth, setSyncingHealth] = useState(false)
@@ -566,9 +562,13 @@ export default function NativeApp() {
     const client = supabaseClient
     if (!client || !session?.user.id) {
       setPosts(seedPosts)
+      setFeedLoading(false)
+      setFeedError('')
       return
     }
     let active = true
+    setFeedLoading(true)
+    setFeedError('')
     const loadCommunityPosts = async () => {
       const { data, error } = await client.from('community_posts')
         .select('id,author_id,body,image_url,location,club,created_at,profiles!community_posts_author_id_fkey(display_name,username,avatar_url)')
@@ -604,10 +604,15 @@ export default function NativeApp() {
       setPosts([...remotePosts, ...seedPosts])
     }
     loadCommunityPosts().catch((error: unknown) => {
-      if (active) Alert.alert('Unable to refresh community posts', error instanceof Error ? error.message : 'Showing the latest available posts.')
+      if (active) setFeedError(error instanceof Error ? error.message : 'Unable to refresh community posts.')
+    }).finally(() => {
+      if (active) {
+        setFeedLoading(false)
+        setRefreshingFeed(false)
+      }
     })
     return () => { active = false }
-  }, [session?.user.id])
+  }, [session?.user.id, feedReloadKey])
 
   useEffect(() => {
     const client = supabaseClient
@@ -763,7 +768,7 @@ export default function NativeApp() {
     return { move, exercise, stand }
   }
 
-  const runActivityAction = async (action: () => Promise<unknown>, successMessage?: string) => {
+  const runActivityAction = async (action: () => Promise<unknown>, successMessage?: string): Promise<boolean> => {
     try {
       const completed = await action()
       setActivityStore(await getActivityStore())
@@ -772,8 +777,10 @@ export default function NativeApp() {
       } else if (successMessage) {
         Alert.alert('Activity tracker', successMessage)
       }
+      return true
     } catch (error) {
       Alert.alert('Activity tracker', error instanceof Error ? error.message : 'The activity could not be updated.')
+      return false
     }
   }
 
@@ -898,11 +905,19 @@ export default function NativeApp() {
       if (!permission.granted) {
         throw new Error('Allow location access in your device settings to find nearby activities.')
       }
-      const lastKnown = await Location.getLastKnownPositionAsync({
-        maxAge: 5 * 60 * 1000,
-        requiredAccuracy: 1000,
-      })
-      const position = lastKnown ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      // A device can have permission while still having no cached GPS fix. Treat
+      // the cache as optional, then request a quick coarse fix for nearby clubs.
+      // This is more reliable indoors and avoids failing before the live request.
+      let lastKnown: Location.LocationObject | null = null
+      try {
+        lastKnown = await Location.getLastKnownPositionAsync({
+          maxAge: 15 * 60 * 1000,
+          requiredAccuracy: 2500,
+        })
+      } catch {
+        // Some iOS/Expo Go builds throw when no cached location exists.
+      }
+      const position = lastKnown ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low })
       let place: Location.LocationGeocodedAddress | null = null
       try {
         [place] = await Location.reverseGeocodeAsync({
@@ -1271,7 +1286,7 @@ export default function NativeApp() {
     }
   }
 
-  const renderHome = () => (
+  const legacyRenderHome = () => (
     <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerStyle={styles.screenContent} contentContainerClassName="px-[18px] pb-8 pt-5" keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Find your people." action={
         <Pressable className="h-11 w-11 items-center justify-center rounded-full border-2 border-accent-200 bg-white p-0.5 shadow-md dark:bg-[#132018]" onPress={() => setTab('profile')} accessibilityLabel="Open profile">
@@ -1385,7 +1400,48 @@ export default function NativeApp() {
     </ScrollView>
   )
 
-  const renderSchedule = () => (
+  const renderHome = () => (
+    <ClubsScreen
+      styles={styles}
+      accountUsername={accountUsername}
+      profileAvatarUrl={profileAvatarUrl}
+      search={search}
+      setSearch={setSearch}
+      postalInput={postalInput}
+      setPostalInput={setPostalInput}
+      selectedClubCountry={selectedClubCountry}
+      setCountryCode={setCountryCode}
+      searchingPostalCode={searchingPostalCode}
+      searchByPostalCode={searchByPostalCode}
+      locatingClubs={locatingClubs}
+      findNearbyActivities={findNearbyActivities}
+      locationLabel={locationLabel}
+      nearbyPlaces={nearbyPlaces}
+      category={category}
+      categories={categories}
+      setCategory={setCategory}
+      visibleClubs={visibleClubs}
+      joined={joined}
+      setSelectedClub={setSelectedClub}
+      loadingNearbyPlaces={loadingNearbyPlaces}
+      nearbyPlacesError={nearbyPlacesError}
+      openNearbyPlace={openNearbyPlace}
+      managedClubs={managedClubs}
+      setSelectedManagedClub={setSelectedManagedClub}
+      clubsLoading={clubsLoading}
+      clubsError={clubsError}
+      setClubsReloadKey={setClubsReloadKey}
+      ownerStatus={ownerStatus}
+      setTab={setTab}
+      AppIcon={AppIcon}
+      SectionTitle={SectionTitle}
+      Avatar={Avatar}
+      ClubCard={ClubCard}
+      darkMode={isDark}
+    />
+  )
+
+  const legacyRenderSchedule = () => (
     <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Schedule" />
       <View className="mb-3 rounded-[23px] border border-[#dfe7d9] bg-white p-3 shadow-lg dark:border-[#2a3b30] dark:bg-[#132018]">
@@ -1483,50 +1539,7 @@ export default function NativeApp() {
     </ScrollView>
   )
 
-  const renderFeed = () => (
-    <ScrollView
-      className="flex-1 bg-[#e9eee4] dark:bg-[#050c08]"
-      contentContainerClassName="px-[18px] pb-8 pt-6"
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshingFeed}
-          onRefresh={() => {
-            setRefreshingFeed(true)
-            setPosts((current) => current.slice())
-            requestAnimationFrame(() => setRefreshingFeed(false))
-          }}
-          tintColor={colors.blue}
-          colors={[colors.blue]}
-        />
-      }
-    >
-      <ScreenHeader title="FitHive" centerTitle wordmark action={
-        <View className="w-[104px] flex-row items-center justify-end gap-2">
-          <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-[#dfe7d9] bg-white shadow-md dark:border-[#2a3b30] dark:bg-[#132018]" onPress={openNotifications} accessibilityLabel="Open notifications">
-            <AppIcon name="notifications-outline" />
-            {!!notifications.some((notification) => !notification.read_at) && <View className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#e9516c] dark:border-[#132018]" />}
-          </Pressable>
-          <Pressable className="h-11 w-11 items-center justify-center rounded-full border border-accent-200 bg-accent-200 shadow-md" onPress={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }} accessibilityLabel="Create a post">
-            <AppIcon name="add" />
-          </Pressable>
-        </View>
-      } />
-      {posts.map((post) => (
-        <PostCard
-          key={post.id}
-          post={post}
-          photoUri={profileAvatarUrl}
-          onLike={() => toggleLike(post.id)}
-          onSave={() => toggleSave(post.id)}
-          onComments={() => setCommentsPostId(post.id)}
-          following={followedHandles.includes(post.handle.toLowerCase())}
-          onToggleFollow={() => { void toggleFollow(post.handle) }}
-        />
-      ))}
-    </ScrollView>
-  )
-
-  const renderExplore = () => (
+  const legacyRenderExplore = () => (
     <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title="Explore" />
       <View className="mb-2 rounded-[24px] border border-accent-200 bg-[#eef6d2] p-5 dark:border-[#4b6138] dark:bg-[#16281c]">
@@ -1550,7 +1563,52 @@ export default function NativeApp() {
     </ScrollView>
   )
 
-  const renderProfile = () => (
+  const renderSchedule = () => (
+    <ScheduleScreen
+      styles={styles}
+      scheduleWeek={scheduleWeek}
+      selectedScheduleDate={selectedScheduleDate}
+      setSelectedScheduleDate={setSelectedScheduleDate}
+      moveScheduleWeek={moveScheduleWeek}
+      scheduleTrips={scheduleTrips}
+      selectedDayTrips={selectedDayTrips}
+      scheduleIds={scheduleIds}
+      reserved={reserved}
+      importedWorkouts={importedWorkouts}
+      dailyFitnessMetrics={dailyFitnessMetrics}
+      activityStore={activityStore}
+      ringMetricsForDate={ringMetricsForDate}
+      tripDateKey={tripDateKey}
+      dateKey={dateKey}
+      setTab={setTab}
+      openTrip={openTrip}
+      ScreenHeader={ScreenHeader}
+      SectionTitle={SectionTitle}
+      TripCard={TripCard}
+      AppIcon={AppIcon}
+      FitnessRings={FitnessRings}
+      darkMode={isDark}
+    />
+  )
+
+  const renderExplore = () => (
+    <ExploreScreen
+      styles={styles}
+      colors={colors}
+      trips={trips}
+      media={media}
+      reserved={reserved}
+      setTab={setTab}
+      openTrip={openTrip}
+      ScreenHeader={ScreenHeader}
+      SectionTitle={SectionTitle}
+      TripCard={TripCard}
+      AppIcon={AppIcon}
+      darkMode={isDark}
+    />
+  )
+
+  const legacyRenderProfile = () => (
     <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title={accountHandle} centerTitle action={
         <View style={styles.profileHeaderActions}>
@@ -1616,22 +1674,60 @@ export default function NativeApp() {
       ) : <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-5 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your scheduled events will appear here.</Text>}
       <SectionTitle title="Recently posted" />
       {!myPosts.length && <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-6 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your recent posts will appear here.</Text>}
-      {myPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} />)}
+      {myPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} dark={isDark} following={false} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} onToggleFollow={() => {}} />)}
     </ScrollView>
   )
 
+  const renderProfile = () => (
+    <ProfileScreen
+      styles={styles}
+      accountHandle={accountHandle}
+      accountUsername={accountUsername}
+      profileName={profileName}
+      profileBio={profileBio}
+      profileAvatarUrl={profileAvatarUrl}
+      scheduleIds={scheduleIds}
+      myPosts={myPosts}
+      followersCount={followersCount}
+      followingCount={followingCount}
+      joined={joined}
+      scheduleTrips={scheduleTrips}
+      ownerStatus={ownerStatus}
+      dark={isDark}
+      badgeForClub={badgeForClub}
+      clubById={clubById}
+      setTab={setTab}
+      setSettingsVisible={setSettingsVisible}
+      setSelectedClub={setSelectedClub}
+      openTrip={openTrip}
+      toggleLike={toggleLike}
+      toggleSave={toggleSave}
+      setCommentsPostId={setCommentsPostId}
+      ScreenHeader={ScreenHeader}
+      Avatar={Avatar}
+      ClubBadgeView={ClubBadgeView}
+      SectionTitle={SectionTitle}
+      PostCard={PostCard}
+      AppIcon={AppIcon}
+    />
+  )
+
   const renderBottomTabs = (onNavigate: (next: Tab) => void = (next) => setTab(next)) => (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]} className="border-[#dedfd7] bg-white dark:border-[#294032] dark:bg-[#0d1a12]">
+    <View style={[styles.tabBar, {
+      paddingBottom: Math.max(insets.bottom, 8),
+      backgroundColor: isDark ? '#171C19' : '#F5F6F2',
+      borderTopColor: isDark ? '#2B342F' : '#E3E6DF',
+    }]}>
       {tabs.map((item) => {
         const active = tab === item.id
         return (
           <Pressable key={item.id} style={styles.tabButton} onPress={() => onNavigate(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
             {item.id === 'profile' ? (
-              <View className={`h-7 w-7 items-center justify-center rounded-full border-2 ${active ? 'border-accent-200' : 'border-transparent'}`}>
+              <View style={[styles.profileTabRing, active && styles.profileTabRingActive]}>
                 <Avatar name={accountUsername} size={24} photoUri={profileAvatarUrl} />
               </View>
-            ) : <AppIcon name={item.icon} size={22} color={active ? colors.ink : colors.muted} />}
-            <Text style={[styles.tabLabel, active && styles.tabLabelActive]} className={active ? 'dark:text-[#d9ff5a]' : 'dark:text-[#9eafa2]'}>{item.label}</Text>
+            ) : <AppIcon name={active ? (activeTabIcons[item.id] ?? item.icon) : item.icon} size={23} color={active ? '#FF7900' : (isDark ? '#9CA6A0' : '#73776D')} />}
+            <Text style={[styles.tabLabel, { color: active ? '#FF7900' : (isDark ? '#9CA6A0' : '#73776D') }, active && styles.tabLabelActive]}>{item.label}</Text>
             {active && <View style={styles.tabIndicator} />}
           </Pressable>
         )
@@ -1639,14 +1735,14 @@ export default function NativeApp() {
     </View>
   )
 
-  if (authLoading || !fontsLoaded) {
+  if (authLoading || !fontsLoaded || !appearanceReady) {
     return <SafeAreaView style={styles.safeArea}><View style={styles.authLoading}><Text style={styles.authLoadingText}>Loading your account…</Text></View></SafeAreaView>
   }
   if (!session) return <AuthScreen client={supabaseClient} />
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeBackground }]} edges={['top']}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.appBody}>
         {tab === 'home' && renderHome()}
         {tab === 'schedule' && renderSchedule()}
@@ -1654,15 +1750,37 @@ export default function NativeApp() {
           <ActivityScreen
             store={activityStore}
             elapsedSeconds={activeDuration}
-            onStart={(kind: ActivityKind) => { void runActivityAction(() => beginActivity(kind)) }}
+            onStart={(kind: ActivityKind) => runActivityAction(() => beginActivity(kind))}
             onPause={() => { void runActivityAction(pauseActivity) }}
             onResume={() => { void runActivityAction(resumeActivity) }}
             onFinish={() => { void runActivityAction(finishActivity) }}
             ringMetrics={ringMetricsForDate(new Date())}
+            darkMode={isDark}
             bottomTabs={renderBottomTabs()}
           />
         )}
-        {tab === 'feed' && renderFeed()}
+        {tab === 'feed' && (
+          <FeedScreen
+            posts={posts}
+            profileAvatarUrl={profileAvatarUrl}
+            refreshing={refreshingFeed}
+            loading={feedLoading}
+            error={feedError}
+            onRefresh={() => {
+              setRefreshingFeed(true)
+              setFeedReloadKey((current) => current + 1)
+            }}
+            onOpenNotifications={openNotifications}
+            hasUnreadNotifications={notifications.some((notification) => !notification.read_at)}
+            onCompose={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }}
+            onLike={toggleLike}
+            onSave={toggleSave}
+            onComments={setCommentsPostId}
+            followedHandles={followedHandles}
+            onToggleFollow={(handle) => { void toggleFollow(handle) }}
+            darkMode={isDark}
+          />
+        )}
         {tab === 'explore' && renderExplore()}
         {tab === 'profile' && renderProfile()}
         {tab === 'owner' && supabaseClient && session && (
@@ -1673,27 +1791,45 @@ export default function NativeApp() {
       </View>
       {renderBottomTabs()}
 
-      <Modal visible={!!selectedClub} animationType="slide" onRequestClose={() => setSelectedClub(null)}>
-        {selectedClub && <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
-            <View style={styles.modalImageWrap}>
-              <Image source={{ uri: selectedClub.image }} style={styles.modalHeroImage} />
-              <Pressable style={styles.closeButton} onPress={() => setSelectedClub(null)} accessibilityLabel="Close club">
-                <AppIcon name="close" color={colors.white} />
+      <Modal
+        visible={!!selectedClub}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        allowSwipeDismissal
+        onRequestClose={() => setSelectedClub(null)}
+        onDismiss={() => setSelectedClub(null)}
+      >
+        {selectedClub && <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={['top', 'bottom']}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 28, backgroundColor: themeBackground }}>
+            <View style={{ height: 390, position: 'relative', overflow: 'hidden', backgroundColor: dark ? '#101510' : '#D7DBCF' }}>
+              <Image source={{ uri: selectedClub.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 190, backgroundColor: 'rgba(0,0,0,0.62)' }} />
+              <Pressable style={[styles.closeButton, { top: 16, left: 16, right: undefined }]} onPress={() => setSelectedClub(null)} accessibilityLabel="Close club">
+                <AppIcon name="chevron-back" color={colors.white} />
               </Pressable>
-              <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{selectedClub.category.toUpperCase()}</Text></View>
+              <View style={{ position: 'absolute', left: 18, right: 18, bottom: 22 }}>
+                <Text style={{ color: '#FFB067', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }}>{selectedClub.category.toUpperCase()}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 31, lineHeight: 36, fontWeight: '900', marginTop: 6 }}>{selectedClub.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 }}><AppIcon name="location-outline" size={15} color="#E5E7EB" /><Text style={{ color: '#E5E7EB', fontSize: 12 }}>{areas[selectedClub.zip]?.city}, {areas[selectedClub.zip]?.state}</Text></View>
+              </View>
             </View>
-            <View style={styles.modalPadding}>
-              <Text style={styles.modalTitle}>{selectedClub.name}</Text>
-              <Text style={styles.modalSub}>{areas[selectedClub.zip]?.city}, {areas[selectedClub.zip]?.state} · {selectedClub.members.toLocaleString()} members</Text>
-              <Text style={styles.sectionTitle}>Our mission</Text>
-              <Text style={styles.bodyText}>{selectedClub.mission}</Text>
-              <Text style={styles.sectionTitle}>About</Text>
-              <Text style={styles.bodyText}>{selectedClub.about}</Text>
-              <View style={styles.detailInfo}><AppIcon name="calendar-outline" color={colors.muted} /><Text style={styles.bodyText}>{selectedClub.meets}</Text></View>
-              <Pressable style={[styles.primaryButton, joined.includes(selectedClub.id) && styles.secondaryButton]} onPress={() => toggleJoin(selectedClub.id)}>
-                <AppIcon name={joined.includes(selectedClub.id) ? 'checkmark' : 'add'} color={colors.ink} />
-                <Text style={styles.primaryButtonText}>{joined.includes(selectedClub.id) ? 'Joined' : 'Join club'}</Text>
+            <View style={{ marginTop: -1, padding: 18, backgroundColor: themeSurface, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+                <View><Text style={{ color: foreground, fontSize: 20, fontWeight: '900' }}>{selectedClub.members.toLocaleString()}</Text><Text style={{ color: themeMuted, fontSize: 10, marginTop: 3 }}>MEMBERS</Text></View>
+                <View><Text style={{ color: foreground, fontSize: 20, fontWeight: '900' }}>{selectedClub.level}</Text><Text style={{ color: themeMuted, fontSize: 10, marginTop: 3 }}>LEVEL</Text></View>
+                <View><Text style={{ color: foreground, fontSize: 20, fontWeight: '900' }}>{selectedClub.founded}</Text><Text style={{ color: themeMuted, fontSize: 10, marginTop: 3 }}>FOUNDED</Text></View>
+              </View>
+              <Text style={{ color: foreground, fontSize: 19, fontWeight: '900', marginBottom: 7 }}>Move together.</Text>
+              <Text style={{ color: themeMuted, fontSize: 13, lineHeight: 20 }}>{selectedClub.mission}</Text>
+              <View style={{ marginTop: 18, padding: 14, borderRadius: 18, backgroundColor: dark ? '#222622' : '#F5F6F2', borderWidth: 1, borderColor: themeBorder }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}><AppIcon name="calendar-outline" color="#FF7900" /><View style={{ flex: 1 }}><Text style={{ color: foreground, fontSize: 12, fontWeight: '800' }}>Next meetup</Text><Text style={{ color: themeMuted, fontSize: 11, marginTop: 3 }}>{selectedClub.nextEvent} · {selectedClub.nextWhen}</Text></View></View>
+              </View>
+              <Text style={{ color: foreground, fontSize: 17, fontWeight: '900', marginTop: 22, marginBottom: 6 }}>About the club</Text>
+              <Text style={{ color: themeMuted, fontSize: 13, lineHeight: 20 }}>{selectedClub.about}</Text>
+              <Text style={{ color: themeMuted, fontSize: 11, lineHeight: 17, marginTop: 14 }}>Meets {selectedClub.meets}. Hosted by {selectedClub.owner}.</Text>
+              <Pressable style={[styles.primaryButton, { backgroundColor: joined.includes(selectedClub.id) ? (dark ? '#2B332D' : '#E7EAE4') : '#FF7900', marginTop: 22 }]} onPress={() => toggleJoin(selectedClub.id)} accessibilityRole="button" accessibilityLabel={joined.includes(selectedClub.id) ? 'Leave club' : 'Join club'}>
+                <AppIcon name={joined.includes(selectedClub.id) ? 'checkmark' : 'add'} color={joined.includes(selectedClub.id) ? foreground : '#FFFFFF'} />
+                <Text style={{ color: joined.includes(selectedClub.id) ? foreground : '#FFFFFF', fontSize: 14, fontWeight: '900' }}>{joined.includes(selectedClub.id) ? 'Joined' : 'Join club'}</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -1915,19 +2051,50 @@ export default function NativeApp() {
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={settingsVisible} animationType="slide" onRequestClose={() => setSettingsVisible(false)}>
-        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
-          <View style={styles.sheetHeader}>
+      <SettingsScreen
+        visible={settingsVisible}
+        onClose={() => setSettingsVisible(false)}
+        styles={styles}
+        themeBackground={themeBackground}
+        themeSurface={themeSurface}
+        themeText={themeText}
+        themeMuted={themeMuted}
+        themeBorder={themeBorder}
+        isDark={isDark}
+        accountUsername={accountUsername}
+        accountHandle={accountHandle}
+        email={session?.user.email}
+        profileAvatarUrl={profileAvatarUrl}
+        accountSettingsError={accountSettingsError}
+        healthProvider={healthProvider}
+        importedWorkouts={importedWorkouts}
+        syncingHealth={syncingHealth}
+        ownerStatus={ownerStatus}
+        appearancePreference={appearancePreference}
+        setAppearance={changeAppearance}
+        beginProfileEdit={beginProfileEdit}
+        connectHealthProvider={() => { void connectHealthProvider() }}
+        disconnectHealthProvider={() => { void disconnectHealthProvider() }}
+        setTab={setTab}
+        signOut={() => { void signOut() }}
+        renderBottomTabs={renderBottomTabs}
+        AppIcon={AppIcon}
+        Avatar={Avatar}
+      />
+
+      <Modal visible={false} animationType="slide" onRequestClose={() => setSettingsVisible(false)}>
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={['top', 'bottom']}>
+          <View style={[styles.sheetHeader, { backgroundColor: themeSurface, borderBottomColor: themeBorder }]}>
             <Pressable onPress={() => setSettingsVisible(false)} accessibilityLabel="Close settings"><AppIcon name="close" /></Pressable>
-            <Text style={styles.sheetTitle}>Settings</Text>
+            <Text style={[styles.sheetTitle, { color: themeText }]}>Settings</Text>
             <View style={{ width: 24 }} />
           </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.settingsContent}>
-            <View style={styles.settingsAccount}>
+          <ScrollView style={{ flex: 1, backgroundColor: themeBackground }} contentContainerStyle={styles.settingsContent}>
+            <View style={[styles.settingsAccount, settingsSurface]}>
               <Avatar name={accountUsername} size={48} photoUri={profileAvatarUrl} />
               <View style={styles.simpleRowCopy}>
-                <Text style={styles.simpleRowTitle}>{accountHandle}</Text>
-                <Text style={styles.simpleRowSub}>{session?.user.email}</Text>
+                <Text style={[styles.simpleRowTitle, { color: themeText }]}>{accountHandle}</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>{session?.user.email}</Text>
               </View>
             </View>
             {!!accountSettingsError && (
@@ -1937,7 +2104,7 @@ export default function NativeApp() {
               </View>
             )}
             <Text style={styles.settingsSectionLabel}>ACCOUNT</Text>
-            <Pressable style={styles.settingsRow} onPress={() => {
+            <Pressable style={[styles.settingsRow, settingsSurface]} onPress={() => {
               setEditDisplayName(profileName)
               setEditUsername(accountUsername)
               setEditAvatarUri(profileAvatarUrl)
@@ -1948,29 +2115,29 @@ export default function NativeApp() {
               setSettingsVisible(false)
               setEditingProfile(true)
             }}>
-              <AppIcon name="person-circle-outline" color="#5429b8" />
+              <AppIcon name="person-circle-outline" color="#FF7900" />
               <View style={styles.settingsRowCopy}>
-                <Text style={styles.simpleRowTitle}>Edit profile</Text>
-                <Text style={styles.simpleRowSub}>Change your photo, username, display name, and bio</Text>
+                <Text style={[styles.simpleRowTitle, { color: themeText }]}>Edit profile</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>Change your photo, username, display name, and bio</Text>
               </View>
               <AppIcon name="chevron-forward" color={colors.muted} />
             </Pressable>
-            <View style={styles.settingsRow}>
-              <AppIcon name="mail-outline" color="#5429b8" />
+            <View style={[styles.settingsRow, settingsSurface]}>
+              <AppIcon name="mail-outline" color="#FF7900" />
               <View style={styles.settingsRowCopy}>
-                <Text style={styles.simpleRowTitle}>Email address</Text>
-                <Text style={styles.simpleRowSub}>{session?.user.email || 'Not available'}</Text>
+                <Text style={[styles.simpleRowTitle, { color: themeText }]}>Email address</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>{session?.user.email || 'Not available'}</Text>
               </View>
             </View>
             <Text style={styles.settingsSectionLabel}>PREFERENCES & CONNECTED APPS</Text>
-            <View style={styles.appearanceCard}>
+            <View style={[styles.appearanceCard, settingsSurface]}>
               <View style={styles.appearanceHeader}>
                 <View style={styles.appearanceIcon}>
                   <AppIcon name="contrast-outline" color={colors.ink} />
                 </View>
                 <View style={styles.settingsRowCopy}>
-                  <Text style={styles.simpleRowTitle}>Appearance</Text>
-                  <Text style={styles.simpleRowSub}>Choose how FitHive looks on this device</Text>
+                  <Text style={[styles.simpleRowTitle, { color: themeText }]}>Appearance</Text>
+                  <Text style={[styles.simpleRowSub, { color: themeMuted }]}>Choose how FitHive looks on this device</Text>
                 </View>
               </View>
               <View style={styles.appearanceOptions}>
@@ -1984,19 +2151,19 @@ export default function NativeApp() {
                     onPress={() => changeAppearance(value)}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: appearancePreference === value }}
-                    style={[styles.appearanceOption, appearancePreference === value && styles.appearanceOptionSelected]}
+                    style={[styles.appearanceOption, { backgroundColor: isDark ? '#202823' : '#FAFBF8', borderColor: themeBorder }, appearancePreference === value && { backgroundColor: '#FF7900', borderColor: '#FF7900' }]}
                   >
-                    <AppIcon name={icon} size={16} color={appearancePreference === value ? colors.ink : colors.muted} />
-                    <Text style={[styles.appearanceOptionText, appearancePreference === value && styles.appearanceOptionTextSelected]}>{label}</Text>
+                    <AppIcon name={icon} size={16} color={appearancePreference === value ? '#FFFFFF' : themeMuted} />
+                    <Text style={[styles.appearanceOptionText, { color: appearancePreference === value ? '#FFFFFF' : themeMuted }, appearancePreference === value && styles.appearanceOptionTextSelected]}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
-            <View style={styles.settingsRow}>
-              <AppIcon name="heart-circle-outline" color="#5429b8" />
+            <View style={[styles.settingsRow, settingsSurface]}>
+              <AppIcon name="heart-circle-outline" color="#FF7900" />
               <View style={styles.settingsRowCopy}>
-                <Text style={styles.simpleRowTitle}>Fitness app connections</Text>
-                <Text style={styles.simpleRowSub}>
+                <Text style={[styles.simpleRowTitle, { color: themeText }]}>Fitness app connections</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>
                   {healthProvider
                     ? `${healthProvider} connected · ${importedWorkouts.length} workouts imported`
                     : Platform.OS === 'ios'
@@ -2030,20 +2197,20 @@ export default function NativeApp() {
                 </Text>
               </Pressable>
             )}
-            <Pressable style={styles.settingsRow} onPress={() => { setSettingsVisible(false); setTab('activity') }}>
-              <AppIcon name="navigate-circle-outline" color="#5429b8" />
+            <Pressable style={[styles.settingsRow, settingsSurface]} onPress={() => { setSettingsVisible(false); setTab('activity') }}>
+              <AppIcon name="navigate-circle-outline" color="#FF7900" />
               <View style={styles.settingsRowCopy}>
-                <Text style={styles.simpleRowTitle}>Activity tracking</Text>
-                <Text style={styles.simpleRowSub}>GPS tracking, routes, and activity history</Text>
+                <Text style={[styles.simpleRowTitle, { color: themeText }]}>Activity tracking</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>GPS tracking, routes, and activity history</Text>
               </View>
               <AppIcon name="chevron-forward" color={colors.muted} />
             </Pressable>
             <Text style={styles.settingsSectionLabel}>CLUBS</Text>
-            <Pressable style={styles.settingsRow} onPress={() => { setSettingsVisible(false); setTab('owner') }}>
-              <AppIcon name="people-circle-outline" color="#5429b8" />
+            <Pressable style={[styles.settingsRow, settingsSurface]} onPress={() => { setSettingsVisible(false); setTab('owner') }}>
+              <AppIcon name="people-circle-outline" color="#FF7900" />
               <View style={styles.settingsRowCopy}>
-                <Text style={styles.simpleRowTitle}>Club owner access</Text>
-                <Text style={styles.simpleRowSub}>{ownerStatus === 'verified' ? 'Manage your club pages' : 'Request or check owner access'}</Text>
+                <Text style={[styles.simpleRowTitle, { color: themeText }]}>Club owner access</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>{ownerStatus === 'verified' ? 'Manage your club pages' : 'Request or check owner access'}</Text>
               </View>
               <AppIcon name="chevron-forward" color={colors.muted} />
             </Pressable>
@@ -2173,7 +2340,7 @@ const styles = StyleSheet.create({
   nearbyAttribution: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -7, marginBottom: 10 },
   activityIdeaList: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 8 },
   activityIdeaChip: { backgroundColor: '#eee8ff', borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7 },
-  activityIdeaText: { color: '#5429b8', fontSize: 11, fontWeight: '700' },
+  activityIdeaText: { color: '#FF7900', fontSize: 11, fontWeight: '700' },
   nearbyPlaceCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, marginBottom: 8, backgroundColor: colors.white, borderRadius: 15, borderWidth: 1, borderColor: colors.line },
   nearbyPlaceIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' },
   nearbyPlaceCopy: { flex: 1 },
@@ -2186,6 +2353,8 @@ const styles = StyleSheet.create({
   chipTextSelected: { fontWeight: '800' },
   clubCard: { backgroundColor: colors.white, borderRadius: 26, overflow: 'hidden', marginBottom: 16, borderWidth: 0, borderColor: 'transparent', shadowColor: '#17351e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 5 },
   clubImage: { width: '100%', height: 168, backgroundColor: '#d7dbcf' },
+  clubImageFallback: { alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF4EB' },
+  clubImageFallbackText: { color: '#9F4100', fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
   clubImageShade: { position: 'absolute', top: 0, left: 0, right: 0, height: 168, backgroundColor: '#00000016' },
   categoryBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: colors.white, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6 },
   categoryBadgeText: { color: colors.ink, fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
@@ -2322,7 +2491,7 @@ const styles = StyleSheet.create({
   settingsSignOut: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, borderRadius: 24, backgroundColor: '#fff0f0' },
   connectedDeviceHint: { color: colors.muted, fontSize: 10, lineHeight: 15, marginHorizontal: 4, marginTop: -4 },
   healthSettingsActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 5 },
-  healthSettingsButton: { alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center', minHeight: 38, paddingHorizontal: 15, borderRadius: 20, backgroundColor: '#6335d4' },
+  healthSettingsButton: { alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center', minHeight: 38, paddingHorizontal: 15, borderRadius: 20, backgroundColor: '#FF7900' },
   healthSettingsButtonText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   disconnectSettingsButton: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 8 },
   clubEmptyCard: { padding: 15, backgroundColor: '#eee8ff', borderRadius: 16, marginTop: 8 },
@@ -2332,12 +2501,14 @@ const styles = StyleSheet.create({
   clubLoadErrorTitle: { color: '#a32020', fontSize: 12, fontWeight: '800' },
   clubLoadErrorText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 5 },
   clubRetryButton: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, backgroundColor: colors.white },
-  clubRetryText: { color: '#5429b8', fontSize: 11, fontWeight: '800' },
-  tabBar: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 8, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line },
-  tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 48 },
-  tabLabel: { color: colors.muted, fontSize: 9, fontWeight: '600' },
-  tabLabelActive: { color: colors.ink, fontWeight: '800' },
-  tabIndicator: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.ink, position: 'absolute', top: -1 },
+  clubRetryText: { color: '#FF7900', fontSize: 11, fontWeight: '800' },
+  tabBar: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 9, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line },
+  tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 54, position: 'relative' },
+  tabLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
+  tabLabelActive: { fontWeight: '800' },
+  tabIndicator: { width: 24, height: 3, borderRadius: 2, backgroundColor: '#FF7900', position: 'absolute', top: -9 },
+  profileTabRing: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
+  profileTabRingActive: { borderColor: '#FF7900' },
   modalSafe: { flex: 1, backgroundColor: colors.paper },
   modalScroll: { paddingBottom: 24 },
   modalImageWrap: { height: 250, position: 'relative', backgroundColor: '#d7dbcf' },
@@ -2354,7 +2525,7 @@ const styles = StyleSheet.create({
   profileEditInput: { minHeight: 48, borderWidth: 1, borderColor: colors.line, borderRadius: 13, paddingHorizontal: 13, color: colors.ink, backgroundColor: colors.white, fontSize: 14 },
   profileBioInput: { minHeight: 120, paddingTop: 12 },
   profileCharacterCount: { color: colors.muted, fontSize: 10, textAlign: 'right' },
-  profileSaveText: { color: '#5429b8', fontSize: 13, fontWeight: '800' },
+  profileSaveText: { color: '#FF7900', fontSize: 13, fontWeight: '800' },
   errorText: { color: '#a32020', fontSize: 12, lineHeight: 17 },
   modalTitle: { color: colors.ink, fontSize: 25, lineHeight: 31, fontWeight: '800', marginTop: 3 },
   modalSub: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5, marginBottom: 14 },
@@ -2366,7 +2537,7 @@ const styles = StyleSheet.create({
   flightLookupCard: { marginTop: 14, padding: 13, backgroundColor: colors.white, borderRadius: 15, borderWidth: 1, borderColor: colors.line },
   flightInputRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   flightInput: { flex: 1, height: 43, borderWidth: 1, borderColor: colors.line, borderRadius: 12, paddingHorizontal: 12, color: colors.ink, backgroundColor: colors.paper },
-  flightLookupButton: { minWidth: 78, alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingHorizontal: 11, backgroundColor: '#6335d4' },
+  flightLookupButton: { minWidth: 78, alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingHorizontal: 11, backgroundColor: '#FF7900' },
   flightLookupButtonText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   flightStatus: { marginTop: 11, padding: 11, borderRadius: 12, backgroundColor: colors.paper },
   flightStatusTitle: { color: colors.ink, fontSize: 11, fontWeight: '800' },
