@@ -80,13 +80,10 @@ export const activityCatalog = [
   { name: 'Other', category: 'Other', tracksRoute: false },
 ] as const
 
-// Keep local sport artwork in one place so featured activity UI cannot drift
-// from the assets that are actually checked into the app bundle.
+// Keep only verified, non-empty artwork in the registry. Sports without a
+// valid local image intentionally use the visual fallback in ActivityScreen.
 export const sportAssetRegistry = {
-  'Mountain Biking': require('../assets/sports/mountain-biking.png'),
-  'Snowboarding': require('../assets/sports/snowboarding.png'),
-  'Skiing': require('../assets/sports/skiing.png'),
-  'Surfing': require('../assets/sports/surfing.png'),
+  'Mountain Biking': require('../assets/auth-hero-mountain-bike.jpeg'),
 } as const
 
 export type ActivityKind = (typeof activityCatalog)[number]['name']
