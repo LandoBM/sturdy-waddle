@@ -6,6 +6,7 @@ import Svg, { Circle, Polyline } from 'react-native-svg'
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
 import { activityCatalog, activityTracksRoute, sportAssetRegistry } from './activityCatalog'
+import { theme } from '../src/theme'
 import { RouteMap } from './RouteMap'
 import { FitnessRings, type FitnessRingValues } from './FitnessRings'
 import { ActivityTrendChart } from './ActivityTrendChart'
@@ -17,11 +18,11 @@ import {
   formatPace,
 } from './activityMetrics'
 
-const ink = '#171C19'
-const muted = '#68736B'
-const accent = '#FF7900'
-const line = '#E3E6DF'
-const white = '#ffffff'
+const ink = theme.colors.ink
+const muted = theme.colors.muted
+const accent = theme.colors.accent
+const line = theme.colors.line
+const white = '#FFFFFF'
 const featuredSportKinds: ActivityKind[] = ['Mountain Biking', 'Snowboarding', 'Skiing', 'Surfing', 'Rock Climbing', 'Kayaking']
 
 function sportVisual(kind: string) {
@@ -66,7 +67,9 @@ function sportVisual(kind: string) {
 function SportVisual({ kind, dark, compact = false }: { kind: string; dark: boolean; compact?: boolean }) {
   const visual = sportVisual(kind)
   return (
-    <View style={[styles.sportVisual, compact && styles.sportVisualCompact, { borderColor: dark ? '#2B332D' : '#E7EAE4' }]}>
+    <View
+      style={[styles.sportVisual, compact && styles.sportVisualCompact, { borderColor: dark ? theme.colors.darkBorder : theme.colors.line }]}
+    >
       <View style={[styles.absoluteFill, { backgroundColor: dark ? '#111812' : '#EAF0EA' }]} />
       {visual.image ? <Image source={visual.image} resizeMode="contain" style={[styles.absoluteFill, styles.sportVisualImage]} /> : null}
       <View style={[styles.absoluteFill, styles.sportVisualShade, { backgroundColor: visual.image ? 'rgba(4,8,6,0.32)' : `${visual.tint}22` }]} />
@@ -106,8 +109,8 @@ function routePolyline(points: RecordedActivity['points'], width: number, height
 
 function RouteExportCard({ activity, captureTarget, dark }: { activity: RecordedActivity; captureTarget: Ref<any>; dark: boolean }) {
   const { width } = useWindowDimensions()
-  const foreground = dark ? '#F8FAF7' : '#171C19'
-  const secondary = dark ? '#A9B3A9' : '#68736B'
+  const foreground = dark ? theme.colors.darkText : theme.colors.ink
+  const secondary = dark ? theme.colors.darkMuted : theme.colors.muted
   const cardWidth = Math.min(width - 36, 360)
   const routeHeight = 230
   const hasRecordedRoute = activity.points.length > 1
@@ -145,8 +148,8 @@ function RouteThumbnail({ activity, dark }: { activity: RecordedActivity; dark: 
 function Metric({ label, value, unit, darkMode }: { label: string; value: string; unit?: string; darkMode?: boolean }) {
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
-  const foreground = dark ? '#F8FAF7' : '#171C19'
-  const secondary = dark ? '#A9B3A9' : '#68736B'
+  const foreground = dark ? theme.colors.darkText : theme.colors.ink
+  const secondary = dark ? theme.colors.darkMuted : theme.colors.muted
   return (
     <View style={styles.metric}>
       <Text style={[styles.metricLabel, { color: secondary }]}>{label}</Text>
@@ -183,11 +186,11 @@ export function ActivityScreen({
   const routeExportRef = useRef<any>(null)
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
-  const background = dark ? '#080B09' : '#F5F6F2'
-  const surface = dark ? '#171C19' : '#FFFFFF'
-  const foreground = dark ? '#F8FAF7' : '#171C19'
-  const secondary = dark ? '#A9B3A9' : '#68736B'
-  const borderColor = dark ? '#2B332D' : '#E7EAE4'
+  const background = dark ? theme.colors.dark : theme.colors.paper
+  const surface = dark ? theme.colors.darkSurface : '#FFFFFF'
+  const foreground = dark ? theme.colors.darkText : theme.colors.ink
+  const secondary = dark ? theme.colors.darkMuted : theme.colors.muted
+  const borderColor = dark ? theme.colors.darkBorder : theme.colors.line
   const active = store.active
   const trendData = useMemo(() => {
     const today = new Date()

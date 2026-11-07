@@ -1,6 +1,7 @@
 import Svg, { Circle, G, Text as SvgText } from 'react-native-svg'
 import { Text, View } from 'react-native'
 import { useColorScheme } from 'nativewind'
+import { theme } from '../src/theme'
 
 export type FitnessRingValues = {
   move: number
@@ -9,8 +10,8 @@ export type FitnessRingValues = {
 }
 
 const ringDefinitions = [
-  { key: 'move', label: 'Move', goal: 500, unit: 'kcal', color: '#FF7900', radius: 76 },
-  { key: 'exercise', label: 'Exercise', goal: 30, unit: 'min', color: '#FFB067', radius: 57 },
+  { key: 'move', label: 'Move', goal: 500, unit: 'kcal', color: theme.colors.accent, radius: 76 },
+  { key: 'exercise', label: 'Exercise', goal: 30, unit: 'min', color: theme.colors.accentSoft, radius: 57 },
   { key: 'stand', label: 'Stand', goal: 12, unit: 'hrs', color: '#75B9A2', radius: 38 },
 ] as const
 
@@ -18,9 +19,9 @@ export function FitnessRings({ values, compact = false, variant = 'default', dar
   const size = variant === 'dashboard' ? 170 : compact ? 190 : 220
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
-  const trackColor = dark ? '#2B332D' : '#E7EAE4'
-  const foreground = dark ? '#F8FAF7' : '#171C19'
-  const muted = dark ? '#A9B3A9' : '#68736B'
+  const trackColor = dark ? theme.colors.darkBorder : theme.colors.line
+  const foreground = dark ? theme.colors.darkText : theme.colors.ink
+  const muted = dark ? theme.colors.darkMuted : theme.colors.muted
 
   return (
     <View className="items-center">

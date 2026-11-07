@@ -1,13 +1,19 @@
 export const theme = {
   colors: {
-    accent: '#d9ff5a',
-    ink: '#151712',
-    paper: '#f4f5ef',
+    accent: '#FF5A1F',
+    accentSoft: '#FF8A3D',
+    ink: '#17191D',
+    paper: '#F5F6F2',
     blue: '#5c78ff',
     pink: '#ff8fa4',
-    muted: '#73776d',
-    line: '#dedfd7',
-    dark: '#07110d',
+    muted: '#71717A',
+    line: '#E4E4E7',
+    dark: '#090A0C',
+    darkSurface: '#17191D',
+    darkElevated: '#24262B',
+    darkBorder: '#303238',
+    darkText: '#F5F5F5',
+    darkMuted: '#A1A1AA',
   },
   type: {
     caption: 10,
@@ -31,6 +37,6 @@ export const theme = {
     pill: 999,
   },
   shadows: {
-    card: '0 12px 30px rgba(21, 23, 18, 0.08)',
+    card: '0 12px 30px rgba(0, 0, 0, 0.28)',
   },
 } as const

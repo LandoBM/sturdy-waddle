@@ -27,6 +27,7 @@ import {
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { areas, clubById, clubs, distanceBetweenCoordinates, media, type Category, type Club, type Coordinates } from '../src/data'
+import { theme } from '../src/theme'
 import { seedPosts, type Post } from '../src/posts'
 import { driveMinutes, formatDuration, tripById, trips, type Trip } from '../src/trips'
 import { ActivityScreen } from './ActivityScreen'
@@ -131,14 +132,14 @@ interface FlightStatus {
 }
 
 const colors = {
-  ink: '#171C19',
-  muted: '#68736B',
-  paper: '#F5F6F2',
-  white: '#ffffff',
-  lime: '#FF7900',
+  ink: theme.colors.ink,
+  muted: theme.colors.muted,
+  paper: theme.colors.paper,
+  white: '#FFFFFF',
+  lime: theme.colors.accent,
   blue: '#5c78ff',
   pink: '#ff8fa4',
-  line: '#E3E6DF',
+  line: theme.colors.line,
 }
 
 const tabs: { id: Tab; label: string; icon: IconName }[] = [
@@ -392,11 +393,11 @@ export default function NativeApp() {
   // NativeWind remains the styling system, while this effective value keeps
   // native children synchronized during immediate appearance changes.
   const isDark = appearancePreference === 'dark' || (appearancePreference === 'system' && colorScheme === 'dark')
-  const themeBackground = isDark ? '#080B09' : '#F5F6F2'
-  const themeSurface = isDark ? '#171C19' : '#FFFFFF'
-  const themeText = isDark ? '#F8FAF7' : '#171C19'
-  const themeMuted = isDark ? '#A9B3A9' : '#68736B'
-  const themeBorder = isDark ? '#2B342F' : '#E3E6DF'
+  const themeBackground = isDark ? theme.colors.dark : theme.colors.paper
+  const themeSurface = isDark ? theme.colors.darkSurface : '#FFFFFF'
+  const themeText = isDark ? theme.colors.darkText : theme.colors.ink
+  const themeMuted = isDark ? theme.colors.darkMuted : theme.colors.muted
+  const themeBorder = isDark ? theme.colors.darkBorder : theme.colors.line
   const dark = isDark
   const foreground = themeText
   const settingsSurface = { backgroundColor: themeSurface, borderColor: themeBorder }

@@ -1,6 +1,7 @@
 import Svg, { Circle, Line, Polyline } from 'react-native-svg'
 import { Image, Pressable, ScrollView, Text, View } from 'react-native'
 import type { ReactNode } from 'react'
+import { theme } from '../src/theme'
 
 export type ExploreScreenProps = {
   styles: Record<string, any>
@@ -40,12 +41,12 @@ function ExploreTrend({ values, darkMode, foreground, muted, surface }: { values
 }
 
 export function ExploreScreen({ styles, colors, trips, media, reserved, setTab, openTrip, ScreenHeader, SectionTitle, TripCard, AppIcon, darkMode = false }: ExploreScreenProps) {
-  const background = darkMode ? '#080B09' : '#F5F6F2'
-  const surface = darkMode ? '#171C19' : '#FFFFFF'
-  const foreground = darkMode ? '#F8FAF7' : '#171C19'
-  const muted = darkMode ? '#A9B3A9' : '#68736B'
-  const border = darkMode ? '#2B332D' : '#E7EAE4'
-  const elevated = darkMode ? '#222622' : '#FFFFFF'
+  const background = darkMode ? theme.colors.dark : theme.colors.paper
+  const surface = darkMode ? theme.colors.darkSurface : '#FFFFFF'
+  const foreground = darkMode ? theme.colors.darkText : theme.colors.ink
+  const muted = darkMode ? theme.colors.darkMuted : theme.colors.muted
+  const border = darkMode ? theme.colors.darkBorder : theme.colors.line
+  const elevated = darkMode ? theme.colors.darkElevated : '#FFFFFF'
   const softAccent = darkMode ? '#2A1D14' : '#FFF4EB'
   const heroImage = trips[0]?.image ?? media[0]?.image
   const trendValues = media.slice(0, 7).map((item) => Number(item.likes) || 0)
