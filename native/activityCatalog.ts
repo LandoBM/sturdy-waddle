@@ -83,7 +83,7 @@ export const activityCatalog = [
 // Keep only verified, non-empty artwork in the registry. Sports without a
 // valid local image intentionally use the visual fallback in ActivityScreen.
 export const sportAssetRegistry = {
-  'Mountain Biking': require('../assets/auth-hero-mountain-bike.jpeg'),
+  'Mountain Biking': require('../assets/sports/mountain-biking.png'),
   Cycling: require('../assets/sports/road-cycling.png'),
   'Road Cycling': require('../assets/sports/road-cycling.png'),
   Snowboarding: require('../assets/sports/snowboarding.png'),
