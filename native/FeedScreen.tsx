@@ -26,24 +26,28 @@ type FeedScreenProps = {
   onRefresh: () => void
   onOpenNotifications: () => void
   hasUnreadNotifications: boolean
+  unreadNotificationCount?: number
+  feedMode: 'forYou' | 'following'
+  onFeedModeChange: (mode: 'forYou' | 'following') => void
   onCompose: () => void
   onLike: (postId: string) => void
   onSave: (postId: string) => void
   onComments: (postId: string) => void
+  onDelete: (postId: string) => void
   followedHandles: string[]
   onToggleFollow: (handle: string) => void
   darkMode?: boolean
 }
 
 const palette = {
-  orange: '#FF7900',
-  darkBackground: '#080B09',
-  darkSurface: '#171C19',
-  darkBorder: '#2B332D',
+  orange: '#FF5A1F',
+  darkBackground: '#090A0C',
+  darkSurface: '#17191D',
+  darkBorder: '#303238',
   lightBackground: '#F5F6F2',
   lightSurface: '#FFFFFF',
   lightBorder: '#E7EAE4',
-  mutedDark: '#A9B3A9',
+  mutedDark: '#A1A1AA',
   mutedLight: '#68736B',
 }
 
@@ -72,30 +76,40 @@ type PostCardProps = {
   onLike: () => void
   onSave: () => void
   onComments: () => void
+  onDelete?: () => void
   onToggleFollow: () => void
 }
 
 export const PostCard = memo(function PostCard({
-  post, photoUri, dark, following, onLike, onSave, onComments, onToggleFollow,
+  post, photoUri, dark, following, onLike, onSave, onComments, onDelete, onToggleFollow,
 }: PostCardProps) {
   const [imageFailed, setImageFailed] = useState(false)
   const foreground = dark ? '#F8FAF7' : '#171C19'
   const muted = dark ? palette.mutedDark : palette.mutedLight
 
   const openOptions = () => {
-    Alert.alert('Post options', `@${post.handle}`, [
+    const options = [
       { text: 'Share post', onPress: () => { void Share.share({ message: [post.text, post.image].filter(Boolean).join('\n') || `Post by @${post.handle}` }).catch(() => Alert.alert('Unable to share', 'Please try again.')) } },
       { text: post.saved ? 'Remove from saved' : 'Save post', onPress: onSave },
       { text: 'Cancel', style: 'cancel' },
-    ])
+    ] as Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }>
+    if (post.mine && onDelete) options.splice(2, 0, {
+      text: 'Delete post',
+      style: 'destructive',
+      onPress: () => Alert.alert('Delete post?', 'Are you sure you want to permanently delete this post? This action cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
+      ]),
+    })
+    Alert.alert('Post options', `@${post.handle}`, options)
   }
 
   return (
     <View style={[styles.card, { backgroundColor: dark ? palette.darkSurface : palette.lightSurface, borderColor: dark ? palette.darkBorder : palette.lightBorder }]}> 
       <View style={styles.authorRow}>
-        <Avatar name={post.handle} size={44} photoUri={post.mine ? photoUri : post.avatarUrl} />
+        <Avatar name={post.handle} size={44} photoUri={post.displayAsClub ? post.clubAvatarUrl : post.mine ? photoUri : post.avatarUrl} />
         <View style={styles.authorCopy}>
-          <Text style={[styles.handle, { color: foreground }]} numberOfLines={1}>@{post.handle}{post.mine ? ' · You' : ''}</Text>
+          <Text style={[styles.handle, { color: foreground }]} numberOfLines={1}>@{post.handle}{post.mine && !post.displayAsClub ? ' · You' : ''}</Text>
           <Text style={[styles.meta, { color: muted }]} numberOfLines={1}>{[post.club, post.time].filter(Boolean).join(' · ')}</Text>
         </View>
         {!post.mine && (
@@ -161,8 +175,8 @@ export const PostCard = memo(function PostCard({
 
 export function FeedScreen({
   posts, profileAvatarUrl, refreshing, loading = false, error = '', onRefresh, onOpenNotifications,
-  hasUnreadNotifications, onCompose, onLike, onSave, onComments,
-  followedHandles, onToggleFollow, darkMode,
+  hasUnreadNotifications, unreadNotificationCount = 0, onCompose, onLike, onSave, onComments, onDelete,
+  followedHandles, onToggleFollow, feedMode, onFeedModeChange, darkMode,
 }: FeedScreenProps) {
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
@@ -182,7 +196,7 @@ export function FeedScreen({
         <View style={[styles.headerSide, styles.headerActions]}>
           <Pressable onPress={onOpenNotifications} style={[styles.headerIcon, { backgroundColor: dark ? '#252C26' : '#FFFFFF' }]} accessibilityRole="button" accessibilityLabel="Open notifications">
             <Icon name="notifications-outline" color={foreground} size={22} />
-            {hasUnreadNotifications && <View style={styles.unreadDot} />}
+            {hasUnreadNotifications && <View style={styles.unreadBadge}><Text style={styles.unreadBadgeText}>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</Text></View>}
           </Pressable>
           <Pressable onPress={onCompose} style={[styles.headerIcon, { backgroundColor: palette.orange }]} accessibilityRole="button" accessibilityLabel="Create a post">
             <Icon name="add" color="#FFFFFF" size={27} />
@@ -191,10 +205,13 @@ export function FeedScreen({
       </View>
       <Text style={[styles.heading, { color: foreground }]}>Your community.</Text>
       <Text style={[styles.subheading, { color: muted }]}>Every adventure is better together.</Text>
+      <View style={[styles.feedModeControl, { backgroundColor: dark ? '#17191D' : '#FFFFFF', borderColor: dark ? '#303238' : '#E7EAE4' }]} accessibilityRole="tablist">
+        {([['forYou', 'For You'], ['following', 'Following']] as const).map(([mode, label]) => <Pressable key={mode} onPress={() => onFeedModeChange(mode)} style={[styles.feedModeButton, feedMode === mode && styles.feedModeButtonActive]} accessibilityRole="tab" accessibilityState={{ selected: feedMode === mode }}><Text style={[styles.feedModeLabel, { color: feedMode === mode ? '#FFFFFF' : foreground }]}>{label}</Text></Pressable>)}
+      </View>
       {loading && <View style={styles.loadingRow}><ActivityIndicator color={palette.orange} /><Text style={[styles.meta, { color: muted }]}>Refreshing your community…</Text></View>}
       {!!error && <View style={[styles.errorCard, { backgroundColor: dark ? '#2A1814' : '#FFF1EC', borderColor: dark ? '#6C3424' : '#FFC5B2' }]}><Text style={[styles.errorText, { color: dark ? '#FFD0C0' : '#9D351B' }]}>{error}</Text><Pressable onPress={onRefresh} style={styles.retryButton} accessibilityRole="button" accessibilityLabel="Retry loading feed"><Text style={styles.retryText}>Retry</Text></Pressable></View>}
     </View>
-  ), [dark, foreground, muted, hasUnreadNotifications, onOpenNotifications, onCompose, loading, error, onRefresh])
+  ), [dark, foreground, muted, hasUnreadNotifications, unreadNotificationCount, onOpenNotifications, onCompose, feedMode, onFeedModeChange, loading, error, onRefresh])
 
   const renderItem = useCallback(({ item }: { item: Post }) => (
     <PostCard
@@ -205,9 +222,10 @@ export function FeedScreen({
       onLike={() => onLike(item.id)}
       onSave={() => onSave(item.id)}
       onComments={() => onComments(item.id)}
+      onDelete={() => onDelete(item.id)}
       onToggleFollow={() => onToggleFollow(item.handle)}
     />
-  ), [profileAvatarUrl, dark, followedSet, onLike, onSave, onComments, onToggleFollow])
+  ), [profileAvatarUrl, dark, followedSet, onLike, onSave, onComments, onDelete, onToggleFollow])
 
   return (
     <View style={[styles.screen, { backgroundColor: background }]}>
@@ -254,9 +272,14 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', flex: 1 },
   wordmark: { fontSize: 28, fontFamily: 'Exo2_800ExtraBold_Italic', letterSpacing: -1.4 },
   brandDot: { color: palette.orange, fontSize: 30, fontWeight: '900' },
-  unreadDot: { position: 'absolute', right: 9, top: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: palette.orange, borderWidth: 1.5, borderColor: '#FFFFFF' },
+  unreadBadge: { position: 'absolute', right: 2, top: -3, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.orange, borderWidth: 1.5, borderColor: '#FFFFFF' },
+  unreadBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900' },
   heading: { fontSize: 27, fontWeight: '800', letterSpacing: -0.9 },
   subheading: { fontSize: 13, marginTop: 5 },
+  feedModeControl: { flexDirection: 'row', padding: 4, borderRadius: 20, borderWidth: 1, marginTop: 17, marginBottom: 3 },
+  feedModeButton: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 17 },
+  feedModeButtonActive: { backgroundColor: palette.orange },
+  feedModeLabel: { fontSize: 11, fontWeight: '900' },
   card: { borderRadius: 24, borderWidth: 1, padding: 15, marginBottom: 16 },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 14 },
   avatar: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#FFBD7B' },

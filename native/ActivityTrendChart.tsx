@@ -1,10 +1,16 @@
 import Svg, { Circle, Line, Polyline } from 'react-native-svg'
-import { Text, View } from 'react-native'
+import { Animated, Text, View } from 'react-native'
+import { useEffect, useRef } from 'react'
 import { theme } from '../src/theme'
 
 export type ActivityTrendPoint = { label: string; minutes: number }
 
 export function ActivityTrendChart({ data, dark }: { data: ActivityTrendPoint[]; dark: boolean }) {
+  const reveal = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    reveal.setValue(0)
+    Animated.timing(reveal, { toValue: 1, duration: 450, useNativeDriver: true }).start()
+  }, [reveal, data])
   const foreground = dark ? theme.colors.darkText : theme.colors.ink
   const muted = dark ? theme.colors.darkMuted : theme.colors.muted
   const grid = dark ? theme.colors.darkBorder : theme.colors.line
@@ -24,7 +30,7 @@ export function ActivityTrendChart({ data, dark }: { data: ActivityTrendPoint[];
   const polyline = points.map((point) => `${point.x},${point.y}`).join(' ')
 
   return (
-    <View style={{ backgroundColor: surface, borderColor: grid, borderWidth: 1, borderRadius: 24, padding: 16 }}>
+    <Animated.View style={{ backgroundColor: surface, borderColor: grid, borderWidth: 1, borderRadius: 24, padding: 16, opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <View><Text style={{ color: foreground, fontSize: 16, fontWeight: '800' }}>Activity progress</Text><Text style={{ color: muted, fontSize: 10, marginTop: 3 }}>Recorded movement · last 7 days</Text></View>
         {data.length > 0 && <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: '800' }}>{data.reduce((total, point) => total + point.minutes, 0)} min</Text>}
@@ -34,6 +40,6 @@ export function ActivityTrendChart({ data, dark }: { data: ActivityTrendPoint[];
         <Polyline points={polyline} fill="none" stroke={theme.colors.accent} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
         {points.map((point) => <Circle key={point.label} cx={point.x} cy={point.y} r={4} fill={theme.colors.accent} stroke={surface} strokeWidth={2} />)}
       </Svg><View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 3 }}><Text style={{ color: muted, fontSize: 9 }}>{data[0].label}</Text><Text style={{ color: muted, fontSize: 9 }}>{data[Math.floor(data.length / 2)].label}</Text><Text style={{ color: muted, fontSize: 9 }}>{data[data.length - 1].label}</Text></View></View>}
-    </View>
+    </Animated.View>
   )
 }

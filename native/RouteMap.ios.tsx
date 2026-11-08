@@ -19,7 +19,7 @@ export function RouteMap({ points, darkMode }: { points: ActivityPoint[]; darkMo
   const region = { latitude: latest.latitude, longitude: latest.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }
 
   return (
-    <MapView style={styles.map} region={region} mapType="standard">
+    <MapView style={styles.map} region={region} mapType={dark ? 'mutedStandard' : 'standard'} showsCompass showsScale>
       {points.length > 1 && <Polyline coordinates={points} strokeColor="#FF7900" strokeWidth={5} />}
       {!!points.length && <Marker coordinate={points[0]} title="Start" pinColor="#FF7900" />}
       {!!latest && points.length > 1 && <Marker coordinate={latest} title="Current location" pinColor="#FFB067" />}

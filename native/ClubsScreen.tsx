@@ -1,6 +1,7 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import type { ReactNode } from 'react'
 import { useColorScheme } from 'nativewind'
+import { theme } from '../src/theme'
 
 export type ClubsScreenProps = {
   styles: Record<string, any>
@@ -28,7 +29,7 @@ export type ClubsScreenProps = {
   nearbyPlacesError: string
   openNearbyPlace: (place: any) => Promise<void>
   managedClubs: Array<any>
-  setSelectedManagedClub: (club: any) => void
+  openManagedClub: (clubId: string) => void
   clubsLoading: boolean
   clubsError: string
   setClubsReloadKey: (update: (key: number) => number) => void
@@ -52,16 +53,17 @@ export function ClubsScreen({
   selectedClubCountry, setCountryCode, searchingPostalCode, searchByPostalCode, locatingClubs,
   findNearbyActivities, locationLabel, nearbyPlaces, category, categories, setCategory, visibleClubs,
   joined, setSelectedClub, loadingNearbyPlaces, nearbyPlacesError, openNearbyPlace, managedClubs,
-  setSelectedManagedClub, clubsLoading, clubsError, setClubsReloadKey, ownerStatus, setTab,
+  openManagedClub, clubsLoading, clubsError, setClubsReloadKey, ownerStatus, setTab,
   AppIcon, SectionTitle, Avatar, ClubCard, darkMode,
 }: ClubsScreenProps) {
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
-  const background = dark ? '#080B09' : '#F5F6F2'
-  const surface = dark ? '#171C19' : '#FFFFFF'
-  const foreground = dark ? '#F8FAF7' : '#171C19'
-  const muted = dark ? '#A9B3A9' : '#68736B'
-  const border = dark ? '#2B332D' : '#E3E6DF'
+  const background = dark ? theme.colors.dark : theme.colors.paper
+  const surface = dark ? theme.colors.darkSurface : '#FFFFFF'
+  const elevated = dark ? theme.colors.darkElevated : '#FFFFFF'
+  const foreground = dark ? theme.colors.darkText : theme.colors.ink
+  const muted = dark ? theme.colors.darkMuted : theme.colors.muted
+  const border = dark ? theme.colors.darkBorder : theme.colors.line
 
   return (
     <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={[styles.screenContent, { backgroundColor: background }]} contentContainerClassName="px-[18px] pb-8 pt-5" keyboardShouldPersistTaps="handled">
@@ -120,7 +122,7 @@ export function ClubsScreen({
         </Pressable>
       ))}
       {!!managedClubs.length && <SectionTitle title="Your clubs" />}
-      {managedClubs.map((club) => <Pressable key={club.id} style={[styles.simpleRow, { backgroundColor: surface, borderColor: border }]} onPress={() => setSelectedManagedClub(club)}><Avatar name={club.name} size={42} /><View style={styles.simpleRowCopy}><Text style={[styles.simpleRowTitle, { color: foreground }]}>{club.name}</Text><Text style={[styles.simpleRowSub, { color: muted }]}>{[club.activity, club.location].filter(Boolean).join(' · ') || 'Community club'}</Text></View><AppIcon name="chevron-forward" color={muted} /></Pressable>)}
+      {managedClubs.map((club) => <Pressable key={club.id} style={[styles.simpleRow, { backgroundColor: surface, borderColor: border }]} onPress={() => openManagedClub(club.id)}><Avatar name={club.name} size={42} /><View style={styles.simpleRowCopy}><Text style={[styles.simpleRowTitle, { color: foreground }]}>{club.name}</Text><Text style={[styles.simpleRowSub, { color: muted }]}>{[club.activity, club.location].filter(Boolean).join(' · ') || 'Community club'}</Text></View><AppIcon name="chevron-forward" color={muted} /></Pressable>)}
       {clubsLoading && <Text style={styles.simpleRowSub}>Loading community club pages…</Text>}
       {!!clubsError && <View style={styles.clubLoadError}><Text style={styles.clubLoadErrorTitle}>Couldn’t load all club data</Text><Text style={styles.clubLoadErrorText}>{clubsError}</Text><Pressable onPress={() => setClubsReloadKey((key) => key + 1)} style={styles.clubRetryButton}><Text style={styles.clubRetryText}>Try again</Text></Pressable></View>}
       {!clubsLoading && !clubsError && managedClubs.length === 0 && <View style={styles.clubEmptyCard}><Text style={styles.clubEmptyTitle}>Your account is ready for clubs</Text><Text style={styles.clubEmptyText}>Signing up creates your member profile, but not a club page. Club pages appear here after a verified club owner creates one.</Text><Pressable onPress={() => setTab('owner')} style={styles.clubRetryButton}><Text style={styles.clubRetryText}>{ownerStatus === 'verified' ? 'Manage club pages' : 'Club owner access'}</Text></Pressable></View>}

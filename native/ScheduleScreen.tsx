@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import type { ReactNode } from 'react'
+import { theme } from '../src/theme'
 
 export type ScheduleScreenProps = {
   styles: Record<string, any>
@@ -29,11 +30,11 @@ export type ScheduleScreenProps = {
 
 export function ScheduleScreen({ styles, scheduleWeek, selectedScheduleDate, setSelectedScheduleDate, moveScheduleWeek, scheduleTrips, selectedDayTrips, scheduleIds, reserved, importedWorkouts, dailyFitnessMetrics, activityStore, ringMetricsForDate, tripDateKey, dateKey, setTab, openTrip, ScreenHeader, SectionTitle, TripCard, AppIcon, FitnessRings, darkMode = false }: ScheduleScreenProps) {
   const today = new Date()
-  const background = darkMode ? '#080B09' : '#F5F6F2'
-  const surface = darkMode ? '#171C19' : '#FFFFFF'
-  const foreground = darkMode ? '#F8FAF7' : '#171C19'
-  const muted = darkMode ? '#A9B3A9' : '#68736B'
-  const border = darkMode ? '#2B332D' : '#E7EAE4'
+  const background = darkMode ? theme.colors.dark : theme.colors.paper
+  const surface = darkMode ? theme.colors.darkElevated : '#FFFFFF'
+  const foreground = darkMode ? theme.colors.darkText : theme.colors.ink
+  const muted = darkMode ? theme.colors.darkMuted : theme.colors.muted
+  const border = darkMode ? theme.colors.darkBorder : theme.colors.line
   return (
     <ScrollView style={{ flex: 1, backgroundColor: background }} contentContainerStyle={{ backgroundColor: background, paddingHorizontal: 18, paddingBottom: 28, paddingTop: 16 }}>
       <ScreenHeader title="Schedule" />

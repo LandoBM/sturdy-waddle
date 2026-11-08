@@ -22,6 +22,10 @@ export interface Post {
   image?: string
   location?: string
   club?: string
+  clubId?: string
+  displayAsClub?: boolean
+  clubUsername?: string
+  clubAvatarUrl?: string | null
   time: string
   likes: number
   comments: Comment[]

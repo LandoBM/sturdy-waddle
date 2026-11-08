@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useColorScheme } from 'nativewind'
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import {
+  AppState,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -19,6 +20,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,6 +36,8 @@ import { ActivityScreen } from './ActivityScreen'
 import { FeedScreen, PostCard } from './FeedScreen'
 import { ClubsScreen } from './ClubsScreen'
 import { ExploreScreen } from './ExploreScreen'
+import { ClubDetailScreen } from './ClubDetailScreen'
+import { PublicProfileScreen } from './PublicProfileScreen'
 import { ScheduleScreen } from './ScheduleScreen'
 import { ProfileScreen } from './ProfileScreen'
 import { SettingsScreen } from './SettingsScreen'
@@ -78,6 +82,23 @@ type AppNotification = {
   body: string
   created_at: string
   read_at: string | null
+  actor_id?: string | null
+  post_id?: string | null
+  club_id?: string | null
+  membership_id?: string | null
+  actorProfile?: { display_name?: string | null; username?: string | null; avatar_url?: string | null } | null
+}
+
+function formatRelativeNotificationTime(value: string) {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000))
+  if (elapsedSeconds < 60) return 'Just now'
+  const minutes = Math.floor(elapsedSeconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 Notifications.setNotificationHandler({
@@ -226,11 +247,11 @@ function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number;
       <View style={styles.categoryBadge} className="rounded-full border border-white/70 bg-white/95 px-3 py-1.5"><Text style={styles.categoryBadgeText} className="tracking-[0.8px]">{club.category.toUpperCase()}</Text></View>
       {joined && <View style={styles.joinedBadge} className="rounded-full border border-accent-300 bg-accent-200 px-2.5 py-1.5"><AppIcon name="checkmark" size={13} /><Text style={styles.joinedBadgeText}>Joined</Text></View>}
       <View className="p-4">
-        <Text className="mb-1 text-[19px] font-extrabold text-ink dark:text-[#f3f7f0]">{club.name}</Text>
-        <Text className="text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]" numberOfLines={2}>{club.mission}</Text>
+        <Text className="mb-1 text-[19px] font-extrabold text-ink dark:text-white">{club.name}</Text>
+        <Text className="text-xs leading-[18px] text-slate-500 dark:text-white" numberOfLines={2}>{club.mission}</Text>
         <View className="mt-3 flex-row justify-between">
-          <View className="flex-row items-center gap-1.5"><AppIcon name="people-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{club.members.toLocaleString()} members</Text></View>
-          <View className="flex-row items-center gap-1.5"><AppIcon name="location-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{miles} mi · {club.zip}</Text></View>
+          <View className="flex-row items-center gap-1.5"><AppIcon name="people-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-white">{club.members.toLocaleString()} members</Text></View>
+          <View className="flex-row items-center gap-1.5"><AppIcon name="location-outline" size={14} color={colors.muted} /><Text className="text-[10px] font-semibold text-slate-500 dark:text-white">{miles} mi · {club.zip}</Text></View>
         </View>
       </View>
     </Pressable>
@@ -239,7 +260,7 @@ function ClubCard({ club, miles, joined, onPress }: { club: Club; miles: number;
 
 function TripCard({ trip, onPress, reserved }: { trip: Trip; onPress: () => void; reserved: boolean }) {
   return (
-    <Pressable onPress={onPress} className="mb-2 flex-row items-center gap-3 rounded-[22px] border border-[#dfe7d9] bg-white p-2.5 shadow-sm dark:border-[#2a3b30] dark:bg-[#132018]">
+    <Pressable onPress={onPress} className="mb-2 flex-row items-center gap-3 rounded-[22px] border border-[#E4E4E7] bg-white p-2.5 shadow-sm dark:border-[#303238] dark:bg-[#24262B]">
       <Image source={{ uri: trip.image }} style={styles.tripImage} />
       <View style={styles.tripInfo}>
         <View style={styles.tripTopLine}>
@@ -248,7 +269,7 @@ function TripCard({ trip, onPress, reserved }: { trip: Trip; onPress: () => void
         </View>
         <Text style={styles.tripName} className="dark:text-[#f3f7f0]">{trip.title}</Text>
         <Text style={styles.tripMeta} className="dark:text-[#9eafa2]">{trip.time} · {trip.location}</Text>
-        <Text style={styles.tripClub} className="dark:text-[#9eafa2]">{trip.club}</Text>
+        <Text style={styles.tripClub} className="dark:text-white">{trip.club}</Text>
       </View>
       <AppIcon name="chevron-forward" size={18} color={colors.muted} />
     </Pressable>
@@ -296,6 +317,8 @@ export default function NativeApp() {
   const [feedLoading, setFeedLoading] = useState(false)
   const [feedError, setFeedError] = useState('')
   const [feedReloadKey, setFeedReloadKey] = useState(0)
+  const [postReloadKey, setPostReloadKey] = useState(0)
+  const [feedMode, setFeedMode] = useState<'forYou' | 'following'>('forYou')
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [ownerStatus, setOwnerStatus] = useState<OwnerStatus>('none')
@@ -308,6 +331,9 @@ export default function NativeApp() {
   const [followingCount, setFollowingCount] = useState(0)
   const [notificationsVisible, setNotificationsVisible] = useState(false)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
+  const [notificationsRefreshing, setNotificationsRefreshing] = useState(false)
+  const [notificationsError, setNotificationsError] = useState('')
   const [accountSettingsError, setAccountSettingsError] = useState('')
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [appearancePreference, setAppearancePreference] = useState<AppearancePreference>('system')
@@ -337,6 +363,10 @@ export default function NativeApp() {
   const [reserved, setReserved] = useState(['t3', 't6'])
   const [posts, setPosts] = useState<Post[]>(seedPosts)
   const [selectedClub, setSelectedClub] = useState<Club | null>(null)
+  const [selectedRemoteClubId, setSelectedRemoteClubId] = useState<string | null>(null)
+  const [targetClubPostId, setTargetClubPostId] = useState<string | null>(null)
+  const [returnToNotifications, setReturnToNotifications] = useState(false)
+  const [selectedPublicProfileId, setSelectedPublicProfileId] = useState<string | null>(null)
   const [selectedManagedClub, setSelectedManagedClub] = useState<ManagedClub | null>(null)
   const [clubBadges, setClubBadges] = useState<Record<string, ClubBadge>>({})
   const [managedClubs, setManagedClubs] = useState<ManagedClub[]>([])
@@ -351,6 +381,7 @@ export default function NativeApp() {
   const [draftText, setDraftText] = useState('')
   const [draftLocation, setDraftLocation] = useState('')
   const [draftImage, setDraftImage] = useState<string | undefined>()
+  const [draftClubId, setDraftClubId] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
   const [activityStore, setActivityStore] = useState<ActivityStore>({ active: null, history: [], points: 0 })
   const [clock, setClock] = useState(Date.now())
@@ -570,42 +601,139 @@ export default function NativeApp() {
     let active = true
     setFeedLoading(true)
     setFeedError('')
+    let feedOperation = 'community_posts.select'
     const loadCommunityPosts = async () => {
-      const { data, error } = await client.from('community_posts')
-        .select('id,author_id,body,image_url,location,club,created_at,profiles!community_posts_author_id_fkey(display_name,username,avatar_url)')
-        .order('created_at', { ascending: false })
-        .limit(50)
-      if (error) {
-        if (['PGRST205', '42P01'].includes(error.code ?? '')) return
-        throw error
+      const postSelection = 'id,author_id,body,image_url,location,club,club_id,created_at'
+      let rows: any[] = []
+      if (feedMode === 'following') {
+        feedOperation = 'feed.relationships.select'
+        const [{ data: followRows, error: followError }, { data: membershipRows, error: membershipError }] = await Promise.all([
+          client.from('user_follows').select('following_id,following_username').eq('follower_id', session.user.id),
+          client.from('club_memberships').select('club_id').eq('member_id', session.user.id).eq('status', 'active'),
+        ])
+        if (followError) throw followError
+        if (membershipError) throw membershipError
+        const usernames = (followRows ?? []).map((row) => row.following_username).filter(Boolean)
+        const { data: profilesForFollows, error: profilesError } = usernames.length
+          ? await client.from('profiles').select('id,username').in('username', usernames)
+          : { data: [], error: null }
+        if (profilesError) throw profilesError
+        const followedIds = Array.from(new Set([
+          ...(followRows ?? []).map((row) => row.following_id).filter(Boolean),
+          ...(profilesForFollows ?? []).map((profile) => profile.id).filter(Boolean),
+        ]))
+        const joinedClubIds = Array.from(new Set((membershipRows ?? []).map((row) => row.club_id).filter(Boolean)))
+        const candidateQueries = [
+          ...(followedIds.length ? [client.from('community_posts').select(postSelection).in('author_id', followedIds)] : []),
+          ...(joinedClubIds.length ? [client.from('community_posts').select(postSelection).in('club_id', joinedClubIds)] : []),
+          client.from('community_posts').select(postSelection).eq('author_id', session.user.id),
+        ]
+        const candidateResults = await Promise.all(candidateQueries)
+        const candidateById = new Map<string, any>()
+        for (const result of candidateResults) {
+          feedOperation = 'community_posts.candidate.select'
+          if (result.error) throw result.error
+          for (const row of result.data ?? []) candidateById.set(row.id, row)
+        }
+        rows = Array.from(candidateById.values()).sort((left, right) => right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id)).slice(0, 50)
+      } else {
+        const { data, error } = await client.from('community_posts').select(postSelection).order('created_at', { ascending: false }).limit(50)
+        if (error) {
+          if (['PGRST205', '42P01'].includes(error.code ?? '')) return
+          throw error
+        }
+        rows = data ?? []
       }
       if (!active) return
-      const remotePosts: Post[] = (data ?? []).flatMap((row) => {
-        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
-        const handle = profile?.username
-        if (!handle) return []
+      const postIds = rows.map((row) => row.id)
+      const authorIds = Array.from(new Set(rows.map((row) => row.author_id).filter(Boolean)))
+      const clubIds = Array.from(new Set(rows.map((row) => row.club_id).filter(Boolean)))
+      feedOperation = 'feed.related_profiles.select'
+      const [{ data: profileRows, error: profilesError }, { data: clubRows, error: clubsError }] = await Promise.all([
+        authorIds.length ? client.from('profiles').select('id,display_name,username,avatar_url').in('id', authorIds) : Promise.resolve({ data: [], error: null }),
+        clubIds.length ? client.from('clubs').select('id,name,owner_id,badge_url').in('id', clubIds) : Promise.resolve({ data: [], error: null }),
+      ])
+      if (profilesError) throw profilesError
+      if (clubsError) throw clubsError
+      const profilesById = Object.fromEntries((profileRows ?? []).map((profile) => [profile.id, profile]))
+      const clubsById = Object.fromEntries((clubRows ?? []).map((club) => [club.id, club]))
+      feedOperation = 'feed.engagement.select'
+      const [likesResult, commentsResult] = postIds.length ? await Promise.all([
+        client.from('post_likes').select('post_id,user_id').in('post_id', postIds),
+        client.from('post_comments').select('id,post_id,author_id,body,created_at').in('post_id', postIds).order('created_at', { ascending: true }),
+      ]) : [{ data: [] }, { data: [] }]
+      if (likesResult.error) throw likesResult.error
+      if (commentsResult.error) throw commentsResult.error
+      const likes = likesResult.data
+      const comments = commentsResult.data
+      const commentRows = comments ?? []
+      const commentAuthorIds = Array.from(new Set(commentRows.map((comment) => comment.author_id).filter(Boolean)))
+      const { data: commentProfiles, error: commentProfilesError } = commentAuthorIds.length
+        ? await client.from('profiles').select('id,display_name,username,avatar_url').in('id', commentAuthorIds)
+        : { data: [], error: null }
+      if (commentProfilesError) throw commentProfilesError
+      const commentProfilesById = Object.fromEntries((commentProfiles ?? []).map((profile) => [profile.id, profile]))
+      const likesByPost = new Map<string, Array<{ user_id: string }>>()
+      for (const like of likes ?? []) likesByPost.set(like.post_id, [...(likesByPost.get(like.post_id) ?? []), like])
+      const commentsByPost = new Map<string, Post['comments']>()
+      for (const comment of commentRows) {
+        const profile = commentProfilesById[comment.author_id]
+        const handle = profile?.username ?? 'fithive_member'
+        commentsByPost.set(comment.post_id, [...(commentsByPost.get(comment.post_id) ?? []), {
+          id: comment.id,
+          author: profile?.display_name || handle,
+          handle,
+          mine: comment.author_id === session.user.id,
+          text: comment.body,
+          time: new Date(comment.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          likes: 0,
+          liked: false,
+        }])
+      }
+      const remotePosts: Post[] = rows.flatMap((row) => {
+        const profile = profilesById[row.author_id]
+        const club = row.club_id ? clubsById[row.club_id] : undefined
+        const handle = profile?.username ?? 'fithive_member'
+        const postLikes = likesByPost.get(row.id) ?? []
+        const displayAsClub = !!club && club.owner_id === row.author_id
+        const clubUsername = club?.name ? club.name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'club' : undefined
         return [{
           id: `remote-${row.id}`,
           authorId: row.author_id,
-          author: profile.display_name || handle,
-          handle,
+          author: displayAsClub ? club.name : profile.display_name || handle,
+          handle: displayAsClub ? clubUsername : handle,
           avatarUrl: profile.avatar_url,
+          displayAsClub,
+          clubUsername,
+          clubAvatarUrl: null,
           mine: row.author_id === session.user.id,
           text: row.body,
           image: row.image_url ?? undefined,
           location: row.location ?? undefined,
-          club: row.club ?? undefined,
+          club: club?.name ?? row.club ?? undefined,
+          clubId: row.club_id ?? undefined,
           time: new Date(row.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          likes: 0,
-          comments: [],
-          liked: false,
+          likes: postLikes.length,
+          comments: commentsByPost.get(row.id) ?? [],
+          liked: postLikes.some((like) => like.user_id === session.user.id),
           saved: false,
         }]
       })
-      setPosts([...remotePosts, ...seedPosts])
+      setPosts(feedMode === 'following' ? remotePosts : [...remotePosts, ...seedPosts])
     }
     loadCommunityPosts().catch((error: unknown) => {
-      if (active) setFeedError(error instanceof Error ? error.message : 'Unable to refresh community posts.')
+      if (__DEV__) {
+        const details = error as { code?: string; message?: string; details?: string; hint?: string }
+        console.warn('[Feed] community post retrieval failed', {
+          operation: feedOperation,
+          code: details?.code,
+          message: details?.message ?? (error instanceof Error ? error.message : String(error)),
+          details: details?.details,
+          hint: details?.hint,
+          userId: session.user.id,
+        })
+      }
+      if (active) setFeedError(error instanceof Error ? error.message : ((error as { message?: string })?.message || 'Unable to refresh community posts.'))
     }).finally(() => {
       if (active) {
         setFeedLoading(false)
@@ -613,11 +741,34 @@ export default function NativeApp() {
       }
     })
     return () => { active = false }
-  }, [session?.user.id, feedReloadKey])
+  }, [session?.user.id, feedReloadKey, feedMode])
 
   useEffect(() => {
     const client = supabaseClient
-    if (!client || !session?.user.id || (tab !== 'home' && tab !== 'owner')) {
+    if (!client || !session?.user.id) return
+    const channel = client.channel(`community-feed:${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_posts' }, () => {
+        setFeedReloadKey((current) => current + 1)
+      })
+      .subscribe()
+    return () => { void client.removeChannel(channel) }
+  }, [session?.user.id])
+
+  useEffect(() => {
+    if (tab !== 'feed') return
+    setFeedReloadKey((current) => current + 1)
+  }, [tab])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && tab === 'feed') setFeedReloadKey((current) => current + 1)
+    })
+    return () => subscription.remove()
+  }, [tab])
+
+  useEffect(() => {
+    const client = supabaseClient
+    if (!client || !session?.user.id || (tab !== 'home' && tab !== 'owner' && tab !== 'feed')) {
       if (!session?.user.id) setManagedClubs([])
       return
     }
@@ -739,6 +890,7 @@ export default function NativeApp() {
   }
   const commentsPost = posts.find((post) => post.id === commentsPostId) ?? null
   const myPosts = posts.filter((post) => post.mine)
+  const ownedManagedClubs = managedClubs.filter((club) => club.owner_id === session?.user.id)
   const activeDuration = activityStore.active
     ? activityStore.active.elapsedSeconds + (
       activityStore.active.status === 'recording'
@@ -1153,13 +1305,36 @@ export default function NativeApp() {
     setFlightLookupError('')
     setSelectedTrip(trip)
   }
-  const toggleLike = (postId: string) => {
-    setPosts((current) => current.map((post) => post.id === postId
-      ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
-      : post))
+  const toggleLike = async (postId: string) => {
+    const currentPost = posts.find((post) => post.id === postId)
+    if (!currentPost) return
+    const nextLiked = !currentPost.liked
+    setPosts((current) => current.map((post) => post.id === postId ? { ...post, liked: nextLiked, likes: post.likes + (nextLiked ? 1 : -1) } : post))
+    if (!supabaseClient || !session?.user.id || !postId.startsWith('remote-')) return
+    const remoteId = postId.replace(/^remote-/, '')
+    const response = nextLiked
+      ? await supabaseClient.from('post_likes').insert({ post_id: remoteId, user_id: session.user.id })
+      : await supabaseClient.from('post_likes').delete().eq('post_id', remoteId).eq('user_id', session.user.id)
+    if (response.error) {
+      setPosts((current) => current.map((post) => post.id === postId ? { ...post, liked: !nextLiked, likes: Math.max(0, post.likes - (nextLiked ? 1 : -1)) } : post))
+      Alert.alert('Could not update like', response.error.message)
+    }
   }
   const toggleSave = (postId: string) => {
     setPosts((current) => current.map((post) => post.id === postId ? { ...post, saved: !post.saved } : post))
+  }
+  const deletePost = async (postId: string) => {
+    const client = supabaseClient
+    if (!client || !session?.user.id) return
+    const remoteId = postId.startsWith('remote-') ? postId.slice('remote-'.length) : postId
+    const { error } = await client.from('community_posts').delete().eq('id', remoteId).eq('author_id', session.user.id)
+    if (error) {
+      Alert.alert('Could not delete post', error.message)
+      return
+    }
+    setPosts((current) => current.filter((post) => post.id !== postId && post.id !== `remote-${remoteId}`))
+    setPostReloadKey((current) => current + 1)
+    setFeedReloadKey((current) => current + 1)
   }
   const toggleFollow = async (handle: string) => {
     const client = supabaseClient
@@ -1182,42 +1357,147 @@ export default function NativeApp() {
       Alert.alert('Could not update follow', error instanceof Error ? error.message : 'Apply the social follows migration in Supabase, then try again.')
     }
   }
-  const loadNotifications = async () => {
+  const loadNotifications = async (mode: 'initial' | 'refresh' = 'initial') => {
     if (!supabaseClient || !session?.user.id) return
-    const { data, error } = await supabaseClient.from('notifications')
-      .select('id,type,title,body,created_at,read_at')
-      .eq('recipient_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(40)
-    if (error) {
-      if (['PGRST205', '42P01'].includes(error.code ?? '')) return
+    if (mode === 'refresh') setNotificationsRefreshing(true)
+    else setNotificationsLoading(true)
+    setNotificationsError('')
+    try {
+      const { data, error } = await supabaseClient.from('notifications')
+        .select('id,type,title,body,created_at,read_at,actor_id,post_id,club_id,membership_id')
+        .eq('recipient_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(50)
+      if (error) {
+        if (['PGRST205', '42P01'].includes(error.code ?? '')) return
+        throw error
+      }
+      const rows = (data ?? []) as AppNotification[]
+      const actorIds = Array.from(new Set(rows.map((notification) => notification.actor_id).filter((id): id is string => !!id)))
+      if (actorIds.length) {
+        const { data: actorRows } = await supabaseClient.from('profiles').select('id,display_name,username,avatar_url').in('id', actorIds)
+        const actors = Object.fromEntries((actorRows ?? []).map((profile: any) => [profile.id, profile]))
+        setNotifications(rows.map((notification) => ({ ...notification, actorProfile: notification.actor_id ? actors[notification.actor_id] ?? null : null })))
+      } else {
+        setNotifications(rows)
+      }
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : 'Unable to load notifications.')
       throw error
+    } finally {
+      setNotificationsLoading(false)
+      setNotificationsRefreshing(false)
     }
-    setNotifications((data ?? []) as AppNotification[])
   }
   const openNotifications = () => {
     setNotificationsVisible(true)
-    void loadNotifications().catch((error: unknown) => Alert.alert('Unable to load notifications', error instanceof Error ? error.message : 'Please try again.'))
+    void loadNotifications().catch(() => undefined)
   }
   const markNotificationRead = async (notification: AppNotification) => {
-    if (notification.read_at || !supabaseClient) return
+    if (notification.read_at) return true
+    if (!supabaseClient || !session?.user.id) return false
     const readAt = new Date().toISOString()
+    const previous = notifications
     setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: readAt } : item))
-    await supabaseClient.from('notifications').update({ read_at: readAt }).eq('id', notification.id)
+    const { error } = await supabaseClient.from('notifications').update({ read_at: readAt }).eq('id', notification.id).eq('recipient_id', session.user.id)
+    if (error) {
+      setNotifications(previous)
+      Alert.alert('Could not update notification', 'Please try again.')
+      return false
+    }
+    return true
   }
-  const addComment = () => {
+  const handleNotificationPress = async (notification: AppNotification) => {
+    const marked = await markNotificationRead(notification)
+    if (!marked) return
+    if (notification.type === 'follow' && notification.actor_id) {
+      setNotificationsVisible(false)
+      setReturnToNotifications(true)
+      setSelectedPublicProfileId(notification.actor_id)
+      return
+    }
+    if (notification.type !== 'club_post' || !notification.club_id) return
+    setNotificationsVisible(false)
+    setReturnToNotifications(true)
+    setTargetClubPostId(notification.post_id ?? null)
+    setTimeout(() => setSelectedRemoteClubId(notification.club_id ?? null), 250)
+  }
+  const acceptJoinRequest = async (notification: AppNotification) => {
+    if (!supabaseClient || notification.type !== 'club_join_request' || !notification.membership_id) return
+    const { error } = await supabaseClient.from('club_memberships').update({ status: 'active' }).eq('id', notification.membership_id)
+    if (error) {
+      Alert.alert('Could not accept request', error.message)
+      return
+    }
+    await markNotificationRead(notification)
+    await loadNotifications()
+    setClubsReloadKey((current) => current + 1)
+  }
+
+  useEffect(() => {
+    setNotifications([])
+    setNotificationsError('')
+    setTargetClubPostId(null)
+    setReturnToNotifications(false)
+    const client = supabaseClient
+    if (!client || !session?.user.id) return
+    void loadNotifications().catch(() => undefined)
+    const channel = client.channel(`notifications:${session.user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${session.user.id}` }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const incoming = payload.new as AppNotification
+          void (async () => {
+            if (incoming.actor_id) {
+              const { data: actor } = await client.from('profiles').select('display_name,username,avatar_url').eq('id', incoming.actor_id).maybeSingle()
+              incoming.actorProfile = actor ?? null
+            }
+            setNotifications((current) => current.some((item) => item.id === incoming.id) ? current : [incoming, ...current].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)))
+          })()
+        } else if (payload.eventType === 'UPDATE') {
+          const updated = payload.new as AppNotification
+          setNotifications((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item))
+        } else if (payload.eventType === 'DELETE') {
+          setNotifications((current) => current.filter((item) => item.id !== String(payload.old.id)))
+        }
+      })
+      .subscribe()
+    return () => { void client.removeChannel(channel) }
+  }, [session?.user.id])
+
+  useEffect(() => {
+    if (!notificationsVisible || !session?.user.id) return
+    void loadNotifications('refresh').catch(() => undefined)
+  }, [notificationsVisible, session?.user.id])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && notificationsVisible && session?.user.id) void loadNotifications('refresh').catch(() => undefined)
+    })
+    return () => subscription.remove()
+  }, [notificationsVisible, session?.user.id])
+  const addComment = async () => {
     const text = commentText.trim()
     if (!text || !commentsPostId) return
-    setPosts((current) => current.map((post) => post.id === commentsPostId
-      ? { ...post, comments: [...post.comments, { id: `comment-${Date.now()}`, author: accountUsername, handle: accountUsername, mine: true, text, time: 'Just now', likes: 0, liked: false }] }
-      : post))
+    const localComment = { id: `comment-${Date.now()}`, author: accountUsername, handle: accountUsername, mine: true, text, time: 'Just now', likes: 0, liked: false }
+    setPosts((current) => current.map((post) => post.id === commentsPostId ? { ...post, comments: [...post.comments, localComment] } : post))
     setCommentText('')
+    if (supabaseClient && session?.user.id && commentsPostId.startsWith('remote-')) {
+      const { error } = await supabaseClient.from('post_comments').insert({ post_id: commentsPostId.replace(/^remote-/, ''), author_id: session.user.id, body: text })
+      if (error) {
+        setPosts((current) => current.map((post) => post.id === commentsPostId ? { ...post, comments: post.comments.filter((comment) => comment.id !== localComment.id) } : post))
+        Alert.alert('Could not add comment', error.message)
+      } else {
+        setFeedReloadKey((current) => current + 1)
+      }
+    }
   }
   const closeComposer = () => {
     setComposing(false)
     setDraftText('')
     setDraftLocation('')
     setDraftImage(undefined)
+    setDraftClubId(null)
   }
   const submitPost = async () => {
     if (!draftText.trim() && !draftImage) return
@@ -1230,6 +1510,8 @@ export default function NativeApp() {
       text: draftText.trim(),
       image: draftImage,
       location: draftLocation.trim() || undefined,
+      clubId: draftClubId ?? undefined,
+      club: draftClubId ? ownedManagedClubs.find((club) => club.id === draftClubId)?.name : undefined,
       time: 'Just now',
       likes: 0,
       comments: [],
@@ -1243,6 +1525,7 @@ export default function NativeApp() {
         body: draftText.trim(),
         image_url: null,
         location: draftLocation.trim() || null,
+        club_id: draftClubId,
       })
       if (error && !['PGRST205', '42P01'].includes(error.code ?? '')) {
         Alert.alert('Post saved on this device', `It could not be shared with other accounts yet: ${error.message}`)
@@ -1369,7 +1652,7 @@ export default function NativeApp() {
       ))}
       {!!managedClubs.length && <SectionTitle title="Community clubs" />}
       {managedClubs.map((club) => (
-        <Pressable key={club.id} style={styles.simpleRow} className="rounded-[20px] border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => setSelectedManagedClub(club)}>
+        <Pressable key={club.id} style={styles.simpleRow} className="rounded-[20px] border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => setSelectedRemoteClubId(club.id)}>
           <Avatar name={club.name} size={42} />
           <View style={styles.simpleRowCopy}>
             <Text style={styles.simpleRowTitle} className="dark:text-[#f3f7f0]">{club.name}</Text>
@@ -1428,7 +1711,7 @@ export default function NativeApp() {
       nearbyPlacesError={nearbyPlacesError}
       openNearbyPlace={openNearbyPlace}
       managedClubs={managedClubs}
-      setSelectedManagedClub={setSelectedManagedClub}
+      openManagedClub={(clubId) => setSelectedRemoteClubId(clubId)}
       clubsLoading={clubsLoading}
       clubsError={clubsError}
       setClubsReloadKey={setClubsReloadKey}
@@ -1601,6 +1884,8 @@ export default function NativeApp() {
       reserved={reserved}
       setTab={setTab}
       openTrip={openTrip}
+      openClub={(clubId) => setSelectedRemoteClubId(clubId)}
+      openProfile={(profileId) => setSelectedPublicProfileId(profileId)}
       ScreenHeader={ScreenHeader}
       SectionTitle={SectionTitle}
       TripCard={TripCard}
@@ -1704,25 +1989,27 @@ export default function NativeApp() {
       toggleLike={toggleLike}
       toggleSave={toggleSave}
       setCommentsPostId={setCommentsPostId}
+      onDeletePost={(postId) => { void deletePost(postId) }}
       ScreenHeader={ScreenHeader}
       Avatar={Avatar}
       ClubBadgeView={ClubBadgeView}
       SectionTitle={SectionTitle}
       PostCard={PostCard}
       AppIcon={AppIcon}
+      activityStore={activityStore}
     />
   )
 
   const renderBottomTabs = (onNavigate: (next: Tab) => void = (next) => setTab(next)) => (
     <View style={[styles.tabBar, {
       paddingBottom: Math.max(insets.bottom, 8),
-      backgroundColor: isDark ? '#171C19' : '#F5F6F2',
-      borderTopColor: isDark ? '#2B342F' : '#E3E6DF',
+      backgroundColor: isDark ? theme.colors.darkSurface : '#FFFFFF',
+      borderTopColor: isDark ? theme.colors.darkBorder : theme.colors.line,
     }]}>
       {tabs.map((item) => {
         const active = tab === item.id
         return (
-          <Pressable key={item.id} style={styles.tabButton} onPress={() => onNavigate(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
+          <Pressable key={item.id} style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, pressed && styles.tabButtonPressed]} onPress={() => onNavigate(item.id)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={item.label}>
             {item.id === 'profile' ? (
               <View style={[styles.profileTabRing, active && styles.profileTabRingActive]}>
                 <Avatar name={accountUsername} size={24} photoUri={profileAvatarUrl} />
@@ -1773,10 +2060,14 @@ export default function NativeApp() {
             }}
             onOpenNotifications={openNotifications}
             hasUnreadNotifications={notifications.some((notification) => !notification.read_at)}
-            onCompose={() => { setDraftText(''); setDraftImage(undefined); setComposing(true) }}
+            unreadNotificationCount={notifications.filter((notification) => !notification.read_at).length}
+            feedMode={feedMode}
+            onFeedModeChange={setFeedMode}
+            onCompose={() => { setDraftText(''); setDraftImage(undefined); setDraftClubId(null); setComposing(true) }}
             onLike={toggleLike}
             onSave={toggleSave}
             onComments={setCommentsPostId}
+            onDelete={(postId) => { void deletePost(postId) }}
             followedHandles={followedHandles}
             onToggleFollow={(handle) => { void toggleFollow(handle) }}
             darkMode={isDark}
@@ -1837,28 +2128,35 @@ export default function NativeApp() {
         </SafeAreaView>}
       </Modal>
 
-      <Modal visible={notificationsVisible} animationType="slide" onRequestClose={() => setNotificationsVisible(false)}>
-        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
-          <View style={styles.sheetHeader}>
-            <Pressable onPress={() => setNotificationsVisible(false)} accessibilityLabel="Close notifications"><AppIcon name="close" /></Pressable>
-            <Text style={styles.sheetTitle}>Notifications</Text>
-            <View style={{ width: 24 }} />
-          </View>
-          <ScrollView style={styles.commentsList} contentContainerStyle={styles.commentsContent}>
-            {!notifications.length && <Text style={styles.emptyText}>You’re all caught up.</Text>}
+      <Modal visible={notificationsVisible} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal onRequestClose={() => setNotificationsVisible(false)} onDismiss={() => setNotificationsVisible(false)}>
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: '#090A0C' }]} edges={['top', 'bottom']}>
+          <View style={{ flex: 1, backgroundColor: '#090A0C', borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: 'hidden' }}>
+            <View style={{ alignItems: 'center', paddingTop: 9, paddingBottom: 3 }}><View accessibilityLabel="Drag to dismiss notifications" style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: '#A1A1AA' }} /></View>
+            <View style={{ minHeight: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: '#303238' }}>
+              <View><Text style={{ color: '#F5F5F5', fontSize: 22, fontWeight: '900' }}>Notifications</Text><Text style={{ color: '#A1A1AA', fontSize: 11, marginTop: 3 }}>{notifications.filter((notification) => !notification.read_at).length ? `${notifications.filter((notification) => !notification.read_at).length} unread` : 'You’re all caught up'}</Text></View>
+              <Pressable onPress={() => setNotificationsVisible(false)} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#24262B' }} accessibilityLabel="Close notifications"><AppIcon name="close" color="#F5F5F5" size={20} /></Pressable>
+            </View>
+          <ScrollView style={[styles.commentsList, { backgroundColor: themeBackground }]} contentContainerStyle={styles.commentsContent} refreshControl={<RefreshControl refreshing={notificationsRefreshing} onRefresh={() => { void loadNotifications('refresh').catch(() => undefined) }} tintColor="#FF5A1F" colors={["#FF5A1F"]} />}>
+            {notificationsLoading && !notifications.length && <Text style={[styles.emptyText, { color: isDark ? '#A1A1AA' : colors.muted }]}>Loading notifications…</Text>}
+            {!!notificationsError && <View style={[styles.notificationError, { backgroundColor: isDark ? '#2A1814' : '#FFF1EC', borderColor: isDark ? '#6C3424' : '#FFC5B2' }]}><Text style={{ color: isDark ? '#FFD0C0' : '#9D351B', fontSize: 12 }}>{notificationsError}</Text></View>}
+            {!notificationsLoading && !notificationsError && !notifications.length && <Text style={[styles.emptyText, { color: isDark ? '#A1A1AA' : colors.muted }]}>You’re all caught up.</Text>}
             {notifications.map((notification) => (
-              <Pressable key={notification.id} onPress={() => { void markNotificationRead(notification) }} style={[styles.notificationRow, !notification.read_at && styles.notificationUnread]}>
-                <View style={styles.notificationIcon}><AppIcon name={notification.type === 'follow' ? 'person-add-outline' : 'sparkles-outline'} color={colors.ink} /></View>
+              <View key={notification.id} style={[styles.notificationRow, { backgroundColor: isDark ? '#17191D' : colors.white, borderColor: isDark ? '#303238' : '#E7EAE4' }, !notification.read_at && { borderColor: '#FF5A1F', backgroundColor: isDark ? '#24262B' : '#FFF4EE' }]}>
+                <View style={[styles.notificationIcon, { backgroundColor: isDark ? '#FF5A1F22' : colors.lime, overflow: 'hidden' }]}>{notification.type === 'follow' && notification.actorProfile?.avatar_url ? <Image source={{ uri: notification.actorProfile.avatar_url }} style={{ width: '100%', height: '100%' }} /> : <AppIcon name={notification.type === 'club_join_request' ? 'people-outline' : notification.type === 'follow' ? 'person-add-outline' : notification.type === 'comment' ? 'chatbubble-outline' : notification.type === 'like' ? 'heart' : 'sparkles-outline'} color={isDark ? '#FF8A3D' : colors.ink} />}</View>
                 <View style={styles.notificationCopy}>
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  <Text style={styles.notificationBody}>{notification.body}</Text>
-                  <Text style={styles.notificationTime}>{new Date(notification.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</Text>
+                  <Pressable onPress={() => { void handleNotificationPress(notification) }} accessibilityRole="button" accessibilityLabel={`Open ${notification.title}`}>
+                    <Text style={[styles.notificationTitle, { color: isDark ? '#F5F5F5' : colors.ink }]}>{notification.type === 'follow' && notification.actorProfile?.display_name ? notification.actorProfile.display_name : notification.title}</Text>
+                    {notification.type === 'follow' && notification.actorProfile?.username && <Text style={[styles.notificationBody, { color: isDark ? '#FF8A3D' : '#C2410C', fontWeight: '800' }]}>@{notification.actorProfile.username}</Text>}
+                    <Text style={[styles.notificationBody, { color: isDark ? '#A1A1AA' : colors.muted }]}>{notification.body}</Text>
+                    <Text style={[styles.notificationTime, { color: isDark ? '#A1A1AA' : colors.muted }]}>{formatRelativeNotificationTime(notification.created_at)}</Text>
+                  </Pressable>
+                  {notification.type === 'club_join_request' && <Pressable onPress={() => { void acceptJoinRequest(notification) }} style={styles.notificationAction} accessibilityRole="button" accessibilityLabel="Accept club join request"><Text style={styles.notificationActionText}>Accept request</Text></Pressable>}
                 </View>
                 {!notification.read_at && <View style={styles.notificationDot} />}
-              </Pressable>
+              </View>
             ))}
           </ScrollView>
-          {renderBottomTabs((next) => { setNotificationsVisible(false); setTab(next) })}
+          </View>
         </SafeAreaView>
       </Modal>
 
@@ -1980,6 +2278,65 @@ export default function NativeApp() {
               </Pressable>
             )}
           </ScrollView>
+        </SafeAreaView>}
+      </Modal>
+
+      <Modal visible={!!selectedRemoteClubId} animationType="slide" onRequestClose={() => {
+        setSelectedRemoteClubId(null)
+        setTargetClubPostId(null)
+        if (returnToNotifications) {
+          setReturnToNotifications(false)
+          setTimeout(() => setNotificationsVisible(true), 250)
+        }
+      }}>
+        {selectedRemoteClubId && supabaseClient && <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={['top', 'bottom']}>
+          <ClubDetailScreen
+            client={supabaseClient}
+            clubId={selectedRemoteClubId}
+            targetPostId={targetClubPostId}
+            currentUserId={session?.user.id}
+            postReloadKey={postReloadKey}
+            darkMode={isDark}
+            AppIcon={AppIcon}
+            onBack={() => {
+              setSelectedRemoteClubId(null)
+              setTargetClubPostId(null)
+              if (returnToNotifications) {
+                setReturnToNotifications(false)
+                setTimeout(() => setNotificationsVisible(true), 250)
+              }
+            }}
+            onOpenProfile={(profileId) => setSelectedPublicProfileId(profileId)}
+            onDeletePost={(postId) => { void deletePost(postId) }}
+            onCompose={(clubId) => { setDraftText(''); setDraftImage(undefined); setDraftClubId(clubId); setComposing(true) }}
+          />
+        </SafeAreaView>}
+      </Modal>
+
+      <Modal visible={!!selectedPublicProfileId} animationType="slide" onRequestClose={() => {
+        setSelectedPublicProfileId(null)
+        if (returnToNotifications) {
+          setReturnToNotifications(false)
+          setTimeout(() => setNotificationsVisible(true), 250)
+        }
+      }}>
+        {selectedPublicProfileId && supabaseClient && <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={['top', 'bottom']}>
+          <PublicProfileScreen
+            client={supabaseClient}
+            profileId={selectedPublicProfileId}
+            currentUserId={session?.user.id}
+            postReloadKey={postReloadKey}
+            darkMode={isDark}
+            AppIcon={AppIcon}
+            onBack={() => {
+              setSelectedPublicProfileId(null)
+              if (returnToNotifications) {
+                setReturnToNotifications(false)
+                setTimeout(() => setNotificationsVisible(true), 250)
+              }
+            }}
+            onDeletePost={(postId) => { void deletePost(postId) }}
+          />
         </SafeAreaView>}
       </Modal>
 
@@ -2262,8 +2619,12 @@ export default function NativeApp() {
             </View>
             <View style={styles.composeAuthor}>
               <Avatar name={accountUsername} size={42} photoUri={profileAvatarUrl} />
-              <View><Text style={styles.postAuthor}>{accountHandle}</Text><Text style={styles.postSubline}>Share with the community</Text></View>
+              <View style={{ flex: 1 }}><Text style={styles.postAuthor}>{draftClubId ? ownedManagedClubs.find((club) => club.id === draftClubId)?.name ?? 'Club post' : accountHandle}</Text><Text style={styles.postSubline}>{draftClubId ? 'Posting as your club' : 'Share with the community'}</Text></View>
             </View>
+            {!!ownedManagedClubs.length && <View style={styles.postDestinationRow}>
+              <Pressable onPress={() => setDraftClubId(null)} style={[styles.postDestination, !draftClubId && styles.postDestinationActive]} accessibilityRole="button" accessibilityLabel="Post as yourself"><Text style={[styles.postDestinationText, !draftClubId && styles.postDestinationTextActive]}>My profile</Text></Pressable>
+              {ownedManagedClubs.map((club) => <Pressable key={club.id} onPress={() => setDraftClubId(club.id)} style={[styles.postDestination, draftClubId === club.id && styles.postDestinationActive]} accessibilityRole="button" accessibilityLabel={`Post as ${club.name}`}><Text style={[styles.postDestinationText, draftClubId === club.id && styles.postDestinationTextActive]} numberOfLines={1}>{club.name}</Text></Pressable>)}
+            </View>}
             <TextInput
               value={draftText}
               onChangeText={(value) => setDraftText(value.slice(0, 280))}
@@ -2503,11 +2864,13 @@ const styles = StyleSheet.create({
   clubLoadErrorText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 5 },
   clubRetryButton: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, backgroundColor: colors.white },
   clubRetryText: { color: '#FF7900', fontSize: 11, fontWeight: '800' },
-  tabBar: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 9, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line },
+  tabBar: { flexDirection: 'row', justifyContent: 'space-around', marginHorizontal: 12, marginBottom: 8, paddingTop: 9, borderRadius: 30, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, shadowColor: '#000000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14, elevation: 8, overflow: 'hidden' },
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 54, position: 'relative' },
+  tabButtonActive: { borderRadius: 24, backgroundColor: '#FF5A1F18' },
+  tabButtonPressed: { opacity: 0.72, transform: [{ scale: 0.96 }] },
   tabLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
   tabLabelActive: { fontWeight: '800' },
-  tabIndicator: { width: 24, height: 3, borderRadius: 2, backgroundColor: '#FF7900', position: 'absolute', top: -9 },
+  tabIndicator: { width: 24, height: 3, borderRadius: 2, backgroundColor: theme.colors.accent, position: 'absolute', top: 2 },
   profileTabRing: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
   profileTabRingActive: { borderColor: '#FF7900' },
   modalSafe: { flex: 1, backgroundColor: colors.paper },
@@ -2561,6 +2924,14 @@ const styles = StyleSheet.create({
   notificationBody: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 3 },
   notificationTime: { color: colors.muted, fontSize: 9, marginTop: 5 },
   notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e9516c' },
+  notificationAction: { alignSelf: 'flex-start', marginTop: 8, borderRadius: 15, backgroundColor: '#FF7900', paddingHorizontal: 11, paddingVertical: 7 },
+  notificationActionText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  notificationError: { borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 10 },
+  postDestinationRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  postDestination: { maxWidth: 170, borderRadius: 18, borderWidth: 1, borderColor: '#CBD8C5', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 8 },
+  postDestinationActive: { backgroundColor: '#FF7900', borderColor: '#FF7900' },
+  postDestinationText: { color: colors.muted, fontSize: 10, fontWeight: '800' },
+  postDestinationTextActive: { color: '#FFFFFF' },
   commentPostText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginBottom: 18 },
   commentRow: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', marginBottom: 13 },
   commentBubble: { flex: 1, backgroundColor: colors.white, borderRadius: 14, padding: 11, borderWidth: 1, borderColor: colors.line },

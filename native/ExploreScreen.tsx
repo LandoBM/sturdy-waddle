@@ -1,7 +1,10 @@
 import Svg, { Circle, Line, Polyline } from 'react-native-svg'
-import { Image, Pressable, ScrollView, Text, View } from 'react-native'
-import type { ReactNode } from 'react'
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { useState, type ReactNode } from 'react'
 import { theme } from '../src/theme'
+import { sportAssetRegistry } from './activityCatalog'
+import { SportEquipmentCard } from './SportEquipmentCard'
+import { ExploreSearchResults } from './ExploreSearchResults'
 
 export type ExploreScreenProps = {
   styles: Record<string, any>
@@ -11,6 +14,8 @@ export type ExploreScreenProps = {
   reserved: string[]
   setTab: (tab: any) => void
   openTrip: (trip: any) => void
+  openClub: (clubId: string) => void
+  openProfile: (profileId: string) => void
   ScreenHeader: (props: any) => ReactNode
   SectionTitle: (props: any) => ReactNode
   TripCard: (props: any) => ReactNode
@@ -40,7 +45,10 @@ function ExploreTrend({ values, darkMode, foreground, muted, surface }: { values
   )
 }
 
-export function ExploreScreen({ styles, colors, trips, media, reserved, setTab, openTrip, ScreenHeader, SectionTitle, TripCard, AppIcon, darkMode = false }: ExploreScreenProps) {
+export function ExploreScreen({ styles, colors, trips, media, reserved, setTab, openTrip, openClub, openProfile, ScreenHeader, SectionTitle, TripCard, AppIcon, darkMode = false }: ExploreScreenProps) {
+  const [query, setQuery] = useState('')
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('All')
   const background = darkMode ? theme.colors.dark : theme.colors.paper
   const surface = darkMode ? theme.colors.darkSurface : '#FFFFFF'
   const foreground = darkMode ? theme.colors.darkText : theme.colors.ink
@@ -50,12 +58,24 @@ export function ExploreScreen({ styles, colors, trips, media, reserved, setTab, 
   const softAccent = darkMode ? '#2A1D14' : '#FFF4EB'
   const heroImage = trips[0]?.image ?? media[0]?.image
   const trendValues = media.slice(0, 7).map((item) => Number(item.likes) || 0)
+  const categories = ['All', ...Array.from(new Set(trips.map((trip) => trip.category).filter(Boolean)))]
+  const filteredTrips = trips.filter((trip) => {
+    const matchesCategory = selectedCategory === 'All' || trip.category === selectedCategory
+    const haystack = [trip.title, trip.location, trip.club, trip.category].filter(Boolean).join(' ').toLowerCase()
+    return matchesCategory && (!query.trim() || haystack.includes(query.trim().toLowerCase()))
+  })
+  const equipmentSports = Object.keys(sportAssetRegistry)
+  if (showSearchResults && query.trim()) {
+    return <ExploreSearchResults query={query} trips={trips} setTab={setTab} openTrip={openTrip} openClub={openClub} openProfile={openProfile} AppIcon={AppIcon} darkMode={darkMode} onBack={() => setShowSearchResults(false)} onQueryChange={setQuery} onSubmit={() => setShowSearchResults(true)} />
+  }
   return (
     <ScrollView style={{ flex: 1, backgroundColor: background }} contentContainerStyle={{ backgroundColor: background, paddingHorizontal: 18, paddingBottom: 34, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
         <View><Text style={{ color: foreground, fontSize: 26, fontWeight: '900', letterSpacing: -0.8 }}>Explore</Text><Text style={{ color: muted, fontSize: 11, marginTop: 3 }}>Find your next move</Text></View>
         <View style={{ flexDirection: 'row', gap: 8 }}><Pressable style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: elevated, borderWidth: 1, borderColor: border }} onPress={() => setTab('schedule')} accessibilityLabel="Open schedule"><AppIcon name="calendar-outline" size={18} color={foreground} /></Pressable><Pressable style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF7900' }} onPress={() => setTab('feed')} accessibilityLabel="Open community feed"><AppIcon name="heart-outline" size={18} color="#FFFFFF" /></Pressable></View>
       </View>
+      <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 14, borderRadius: 18, backgroundColor: elevated, borderWidth: 1, borderColor: border, marginBottom: 13 }}><AppIcon name="search-outline" color={muted} /><TextInput value={query} onChangeText={setQuery} onSubmitEditing={() => { if (query.trim()) setShowSearchResults(true) }} returnKeyType="search" placeholder="Search places, clubs, or sports" placeholderTextColor={muted} style={{ flex: 1, color: foreground, fontSize: 13 }} accessibilityLabel="Search experiences" /></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 16 }}>{categories.map((item) => <Pressable key={item} onPress={() => setSelectedCategory(item)} style={{ minHeight: 38, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 19, backgroundColor: selectedCategory === item ? theme.colors.accent : elevated, borderWidth: 1, borderColor: selectedCategory === item ? theme.colors.accent : border }} accessibilityRole="radio" accessibilityState={{ selected: selectedCategory === item }}><Text style={{ color: selectedCategory === item ? '#FFFFFF' : foreground, fontSize: 11, fontWeight: '800' }}>{item}</Text></Pressable>)}</ScrollView>
       <View style={{ marginBottom: 18, minHeight: 205, borderRadius: 26, overflow: 'hidden', backgroundColor: softAccent, borderWidth: 1, borderColor: darkMode ? '#6C4325' : '#FFD1B3', shadowColor: '#171C19', shadowOffset: { width: 0, height: 9 }, shadowOpacity: darkMode ? 0.28 : 0.1, shadowRadius: 18, elevation: 4 }}>
         {heroImage && <Image source={{ uri: heroImage }} style={{ position: 'absolute', width: '100%', height: '100%', opacity: darkMode ? 0.64 : 0.78 }} resizeMode="cover" />}
         <View style={{ flex: 1, minHeight: 205, justifyContent: 'flex-end', padding: 18, backgroundColor: darkMode ? 'rgba(8,11,9,0.5)' : 'rgba(255,244,235,0.35)' }}>
@@ -68,6 +88,8 @@ export function ExploreScreen({ styles, colors, trips, media, reserved, setTab, 
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
         {[['EVENTS', trips.length.toString(), 'calendar-outline'], ['SAVED', reserved.length.toString(), 'bookmark-outline'], ['MOMENTS', media.length.toString(), 'images-outline']].map(([label, value, icon]) => <View key={label} style={{ flex: 1, minHeight: 76, justifyContent: 'center', padding: 12, borderRadius: 18, backgroundColor: elevated, borderWidth: 1, borderColor: border }}><AppIcon name={icon as any} size={16} color="#FF7900" /><Text style={{ color: foreground, fontSize: 19, fontWeight: '900', marginTop: 5 }}>{value}</Text><Text style={{ color: muted, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, marginTop: 2 }}>{label}</Text></View>)}
       </View>
+      <View style={{ marginBottom: 11 }}><Text style={{ color: foreground, fontSize: 20, fontWeight: '900' }}>Choose your sport</Text><Text style={{ color: muted, fontSize: 11, marginTop: 3 }}>Equipment-led inspiration for your next session</Text></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>{equipmentSports.slice(0, 5).map((sport) => <View key={sport} style={{ width: 150 }}><SportEquipmentCard sport={sport} darkMode={darkMode} compact /></View>)}</ScrollView>
       <View style={{ marginBottom: 20, padding: 16, borderRadius: 24, backgroundColor: elevated, borderWidth: 1, borderColor: border }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><View><Text style={{ color: foreground, fontSize: 17, fontWeight: '900' }}>Community pulse</Text><Text style={{ color: muted, fontSize: 10, marginTop: 3 }}>Engagement from recent moments</Text></View><View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF7900' }}><AppIcon name="trending-up" size={17} color="#FFFFFF" /></View></View>
         <ExploreTrend values={trendValues} darkMode={darkMode} foreground={foreground} muted={muted} surface={elevated} />
@@ -76,7 +98,8 @@ export function ExploreScreen({ styles, colors, trips, media, reserved, setTab, 
         <View><Text style={{ color: foreground, fontSize: 20, fontWeight: '900', letterSpacing: -0.4 }}>Upcoming near you</Text><Text style={{ color: muted, fontSize: 11, marginTop: 3 }}>Plans worth showing up for</Text></View>
         <Pressable onPress={() => setTab('schedule')} style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 20, opacity: pressed ? 0.6 : 1 })} accessibilityRole="button" accessibilityLabel="Open schedule"><Text style={{ color: '#FF7900', fontSize: 12, fontWeight: '800' }}>Schedule</Text></Pressable>
       </View>
-      {trips.slice(0, 3).map((trip) => <TripCard key={trip.id} trip={trip} reserved={reserved.includes(trip.id)} onPress={() => openTrip(trip)} />)}
+      {filteredTrips.slice(0, 6).map((trip) => <View key={trip.id}><TripCard trip={trip} reserved={reserved.includes(trip.id)} onPress={() => openTrip(trip)} /><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -9, marginBottom: 12 }}><Text style={{ color: muted, fontSize: 10 }}>{trip.location}</Text><Text style={{ color: muted, fontSize: 10 }}>· {trip.locationNote}</Text><Pressable onPress={() => openTrip(trip)}><Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: '900' }}>View details</Text></Pressable></View></View>)}
+      {!filteredTrips.length && <Text style={{ color: muted, fontSize: 12, marginBottom: 20 }}>{query || selectedCategory !== 'All' ? 'No matching experiences found. Try another search or category.' : 'No upcoming experiences are available right now.'}</Text>}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 11 }}>
         <View><Text style={{ color: foreground, fontSize: 20, fontWeight: '900', letterSpacing: -0.4 }}>Community moments</Text><Text style={{ color: muted, fontSize: 11, marginTop: 3 }}>See what the FitHive community is up to</Text></View>
         <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: elevated, borderWidth: 1, borderColor: border }}><AppIcon name="heart-outline" size={17} color="#FF7900" /></View>

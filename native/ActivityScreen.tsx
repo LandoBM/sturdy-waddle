@@ -68,20 +68,14 @@ function SportVisual({ kind, dark, compact = false }: { kind: string; dark: bool
   const visual = sportVisual(kind)
   return (
     <View
-      style={[styles.sportVisual, compact && styles.sportVisualCompact, { borderColor: dark ? theme.colors.darkBorder : theme.colors.line }]}
+      style={[styles.sportVisual, compact && styles.sportVisualCompact, !compact && styles.sportVisualHero, { borderColor: dark ? theme.colors.darkBorder : theme.colors.line }]}
     >
       <View style={[styles.absoluteFill, { backgroundColor: dark ? '#111812' : '#EAF0EA' }]} />
-      {visual.image ? <Image source={visual.image} resizeMode="contain" style={[styles.absoluteFill, styles.sportVisualImage]} /> : null}
-      <View style={[styles.absoluteFill, styles.sportVisualShade, { backgroundColor: visual.image ? 'rgba(4,8,6,0.32)' : `${visual.tint}22` }]} />
+      {visual.image ? <Image source={visual.image} resizeMode="contain" style={[styles.absoluteFill, styles.sportVisualImage, !compact && styles.sportVisualImageHero]} /> : <View style={styles.sportFallbackIcon}><Ionicons name={visual.icon} size={compact ? 28 : 42} color={visual.tint} /></View>}
+      <View style={[styles.absoluteFill, styles.sportVisualShade, { backgroundColor: visual.image ? 'rgba(4,6,9,0.16)' : `${visual.tint}22` }]} />
       <View style={styles.sportVisualContent}>
-        <View style={[styles.sportVisualIcon, { backgroundColor: `${visual.tint}DD` }]}>
-          <Ionicons name={visual.icon} size={compact ? 18 : 24} color="#FFFFFF" />
-        </View>
-        <View>
-          <Text style={styles.sportVisualEyebrow}>FEATURED DISCIPLINE</Text>
-          <Text style={styles.sportVisualTitle}>{kind}</Text>
-          <Text style={styles.sportVisualSubtitle}>{visual.label} beyond ordinary.</Text>
-        </View>
+        {!visual.image && <View style={[styles.sportVisualIcon, { backgroundColor: `${visual.tint}DD` }]}><Ionicons name={visual.icon} size={compact ? 18 : 24} color="#FFFFFF" /></View>}
+        <View><Text style={styles.sportVisualEyebrow}>{compact ? 'SELECTED SPORT' : 'ACTIVE SPORT'}</Text><Text style={styles.sportVisualTitle}>{kind}</Text><Text style={styles.sportVisualSubtitle}>{visual.label} beyond ordinary.</Text></View>
       </View>
     </View>
   )
@@ -145,17 +139,27 @@ function RouteThumbnail({ activity, dark }: { activity: RecordedActivity; dark: 
   )
 }
 
-function Metric({ label, value, unit, darkMode }: { label: string; value: string; unit?: string; darkMode?: boolean }) {
+function Metric({ label, value, unit, darkMode, card = false, primary = false }: { label: string; value: string; unit?: string; darkMode?: boolean; card?: boolean; primary?: boolean }) {
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
   const foreground = dark ? theme.colors.darkText : theme.colors.ink
   const secondary = dark ? theme.colors.darkMuted : theme.colors.muted
   return (
-    <View style={styles.metric}>
-      <Text style={[styles.metricLabel, { color: secondary }]}>{label}</Text>
-      <Text style={[styles.metricValue, { color: foreground }]}>{value}{unit ? <Text style={[styles.metricUnit, { color: secondary }]}> {unit}</Text> : null}</Text>
+    <View style={[styles.metric, card && styles.heroMetric, { backgroundColor: card ? (primary ? (dark ? '#3A2117' : '#FFF4EB') : (dark ? '#24262B' : '#F5F6F2')) : 'transparent' }]}>
+      <Text style={[styles.metricLabel, { color: primary ? accent : secondary }]}>{label}</Text>
+      <Text style={[styles.metricValue, { color: primary ? accent : foreground }]}>{value}{unit ? <Text style={[styles.metricUnit, { color: primary ? accent : secondary }]}> {unit}</Text> : null}</Text>
     </View>
   )
+}
+
+function ElevationChart({ points, dark }: { points: RecordedActivity['points']; dark: boolean }) {
+  const elevations = points.map((point) => point.altitude).filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  if (elevations.length < 2) return null
+  const min = Math.min(...elevations)
+  const max = Math.max(...elevations)
+  const span = Math.max(max - min, 1)
+  const coordinates = elevations.map((value, index) => `${12 + (index / Math.max(1, elevations.length - 1)) * 296},${88 - ((value - min) / span) * 64}`).join(' ')
+  return <View style={[styles.elevationCard, { backgroundColor: dark ? '#111419' : '#F7F8F5', borderColor: dark ? theme.colors.darkBorder : theme.colors.line }]}><View style={styles.elevationHeader}><Text style={[styles.graphTitle, { color: dark ? theme.colors.darkText : theme.colors.ink }]}>Elevation</Text><Text style={{ color: dark ? theme.colors.darkMuted : theme.colors.muted, fontSize: 10 }}>{Math.round(min)}–{Math.round(max)} m</Text></View><Svg width="100%" height={104} viewBox="0 0 320 104"><Polyline points={coordinates} fill="none" stroke={theme.colors.accentSoft} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /></Svg></View>
 }
 
 export function ActivityScreen({
@@ -192,6 +196,8 @@ export function ActivityScreen({
   const secondary = dark ? theme.colors.darkMuted : theme.colors.muted
   const borderColor = dark ? theme.colors.darkBorder : theme.colors.line
   const active = store.active
+  const activeElevations = active?.points.map((point) => point.altitude).filter((value): value is number => typeof value === 'number' && Number.isFinite(value)) ?? []
+  const elevationRange = activeElevations.length > 1 ? Math.max(...activeElevations) - Math.min(...activeElevations) : 0
   const trendData = useMemo(() => {
     const today = new Date()
     return Array.from({ length: 7 }, (_, index) => {
@@ -238,8 +244,9 @@ export function ActivityScreen({
       </View>
 
       <View style={[styles.dashboardCard, { backgroundColor: surface, borderColor }]}> 
-        <View style={styles.dashboardHeader}><View><Text style={[styles.cardTitle, { color: foreground }]}>Today’s activity</Text><Text style={[styles.cardDescription, { color: secondary }]}>{new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</Text></View><View style={[styles.todayPill, { backgroundColor: dark ? '#2B332D' : '#F5F6F2' }]}><View style={styles.liveDot} /><Text style={[styles.todayPillText, { color: secondary }]}>LIVE</Text></View></View>
-        <SportVisual kind={active?.kind ?? 'Mountain Biking'} dark={dark} />
+        <View style={styles.dashboardHeader}><View><Text style={[styles.cardTitle, { color: foreground }]}>{active ? active.kind : 'Today’s activity'}</Text><Text style={[styles.cardDescription, { color: secondary }]}>{active ? (active.status === 'recording' ? 'Recording your movement' : 'Activity paused') : new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</Text></View><View style={[styles.todayPill, { backgroundColor: active ? '#FF5A1F22' : (dark ? '#303238' : '#F5F6F2') }]}><View style={[styles.liveDot, { backgroundColor: active ? accent : secondary }]} /><Text style={[styles.todayPillText, { color: active ? accent : secondary }]}>{active ? active.status.toUpperCase() : 'READY'}</Text></View></View>
+        <SportVisual kind={active?.kind ?? kind} dark={dark} compact={!active} />
+        {active && <View style={[styles.heroMetricRow, { borderColor }]}><Metric label="DURATION" value={formatActivityDuration(elapsedSeconds)} darkMode={dark} card primary />{activityTracksRoute(active.kind) && <Metric label="DISTANCE" value={formatActivityDistance(active.distanceMeters)} unit="mi" darkMode={dark} card />}{elevationRange > 0 && <Metric label="ELEVATION" value={String(Math.round(elevationRange))} unit="m" darkMode={dark} card />}</View>}
         <View style={styles.dashboardBody}>
           <FitnessRings values={ringMetrics} compact variant="dashboard" darkMode={dark} />
           <View style={styles.dashboardMetrics}>
@@ -254,29 +261,14 @@ export function ActivityScreen({
 
       {active ? (
         <View style={[styles.activeCard, { backgroundColor: surface, borderColor }]}>
-          <View style={styles.activeTop}>
-            <View>
-              <Text style={[styles.eyebrow, { color: secondary }]}>{active.status === 'recording' ? 'RECORDING' : 'PAUSED'}</Text>
-              <Text style={[styles.activeTitle, { color: foreground }]}>{active.kind}</Text>
-            </View>
-            <View style={[styles.recordingIndicator, active.status === 'paused' && styles.pausedIndicator]} />
-          </View>
-          <View style={[styles.metricsRow, { borderColor }]}>
-            {activityTracksRoute(active.kind) && <Metric label="DISTANCE" value={formatActivityDistance(active.distanceMeters)} unit="mi" darkMode={dark} />}
-            <Metric label="DURATION" value={formatActivityDuration(elapsedSeconds)} darkMode={dark} />
-            {activityTracksRoute(active.kind) && <Metric label="AVG PACE" value={formatPace(calculatePaceSecondsPerMile(active.distanceMeters, elapsedSeconds))} unit="/mi" darkMode={dark} />}
-          </View>
-          {activityTracksRoute(active.kind) && <View style={styles.graphCard}><Text style={[styles.graphTitle, { color: foreground }]}>Your route</Text><RouteMap points={active.points} darkMode={dark} /></View>}
           <View style={styles.controls}>
             {active.status === 'recording' ? (
-              <Pressable onPress={onPause} style={[styles.pauseButton, { backgroundColor: dark ? '#2B332D' : '#E7EAE4' }]} accessibilityLabel="Pause activity">
-                <Ionicons name="pause" size={18} color={foreground} />
-                <Text style={[styles.controlText, { color: foreground }]}>Pause</Text>
+              <Pressable onPress={onPause} style={[styles.pauseButton, { backgroundColor: accent }]} accessibilityLabel="Pause activity">
+                <Ionicons name="pause" size={24} color="#FFFFFF" />
               </Pressable>
             ) : (
               <Pressable onPress={onResume} style={styles.resumeButton} accessibilityLabel="Resume activity">
-                <Ionicons name="play" size={18} color="#FFFFFF" />
-                <Text style={[styles.controlText, { color: '#FFFFFF' }]}>Resume</Text>
+                <Ionicons name="play" size={24} color="#FFFFFF" />
               </Pressable>
             )}
             <Pressable onPress={onFinish} style={styles.finishButton} accessibilityLabel="Finish activity">
@@ -284,6 +276,7 @@ export function ActivityScreen({
               <Text style={styles.finishText}>Finish activity</Text>
             </Pressable>
           </View>
+          {activityTracksRoute(active.kind) && <View style={styles.graphCard}><Text style={[styles.graphTitle, { color: foreground }]}>Your route</Text><RouteMap points={active.points} darkMode={dark} /><ElevationChart points={active.points} dark={dark} /></View>}
           <Text style={[styles.backgroundNote, { color: secondary }]}>{activityTracksRoute(active.kind) ? 'GPS stays on in the background while recording. A system location indicator remains visible.' : 'This activity records your elapsed time without collecting location.'}</Text>
         </View>
       ) : null}
@@ -317,6 +310,7 @@ export function ActivityScreen({
               <Pressable onPress={() => setPickerVisible(false)} style={[styles.pickerClose, { backgroundColor: dark ? '#222622' : '#E7EAE4' }]} accessibilityLabel="Close activity picker"><Ionicons name="close" size={22} color={foreground} /></Pressable>
             </View>
             <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={secondary} style={[styles.searchInput, { color: foreground, backgroundColor: dark ? '#0F1511' : '#FBFDF9', borderColor }]} accessibilityLabel="Search activity types" />
+            <SportVisual kind={kind} dark={dark} compact />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredSports} keyboardShouldPersistTaps="handled">
               {featuredSportKinds.map((featuredKind) => {
                 const selected = kind === featuredKind
@@ -391,7 +385,7 @@ const styles = StyleSheet.create({
   rewardCopy: { flex: 1 },
   rewardTitle: { color: ink, fontWeight: '800', fontSize: 14 },
   rewardSub: { color: muted, fontSize: 10, marginTop: 3 },
-  activeCard: { backgroundColor: white, borderColor: line, borderWidth: 1, borderRadius: 26, padding: 16, shadowColor: '#171C19', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4 },
+  activeCard: { backgroundColor: white, borderColor: line, borderWidth: 1, borderRadius: 26, padding: 16, shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.24, shadowRadius: 16, elevation: 4 },
   activeTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
   activeTitle: { color: ink, fontSize: 20, fontWeight: '800', marginTop: 4 },
   recordingIndicator: { width: 12, height: 12, borderRadius: 8, backgroundColor: '#e9516c' },
@@ -402,12 +396,14 @@ const styles = StyleSheet.create({
   metricValue: { color: ink, fontSize: 19, fontWeight: '800', marginTop: 5 },
   metricUnit: { color: muted, fontSize: 10, fontWeight: '600' },
   graphCard: { marginTop: 15 },
+  elevationCard: { marginTop: 12, padding: 12, borderRadius: 18, borderWidth: 1 },
+  elevationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   graphTitle: { color: ink, fontSize: 13, fontWeight: '800', marginBottom: 7 },
-  controls: { flexDirection: 'row', gap: 9, marginTop: 15 },
-  pauseButton: { height: 46, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 23, backgroundColor: '#E7EAE4' },
-  resumeButton: { height: 46, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 23, backgroundColor: accent },
+  controls: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
+  pauseButton: { width: 62, height: 62, alignItems: 'center', justifyContent: 'center', borderRadius: 31, backgroundColor: accent, shadowColor: accent, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 4 },
+  resumeButton: { width: 62, height: 62, alignItems: 'center', justifyContent: 'center', borderRadius: 31, backgroundColor: accent, shadowColor: accent, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 4 },
   controlText: { color: ink, fontSize: 12, fontWeight: '800' },
-  finishButton: { flex: 1, height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 23, backgroundColor: ink },
+  finishButton: { flex: 1, height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 23, backgroundColor: '#2A2D33' },
   finishText: { color: white, fontSize: 12, fontWeight: '800' },
   backgroundNote: { color: muted, fontSize: 10, lineHeight: 15, marginTop: 12 },
   startCard: { backgroundColor: white, borderColor: line, borderWidth: 1, borderRadius: 26, padding: 16, shadowColor: '#171C19', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 15, elevation: 3 },
@@ -426,9 +422,12 @@ const styles = StyleSheet.create({
   dashboardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   sportVisual: { height: 142, borderRadius: 21, overflow: 'hidden', borderWidth: 1, marginTop: 14 },
   sportVisualCompact: { height: 88, marginTop: 10 },
-  sportVisualImage: { opacity: 0.9 },
+  sportVisualHero: { height: 248, marginTop: 16, backgroundColor: '#111419' },
+  sportVisualImage: { opacity: 1, width: '100%', height: '100%' },
   sportVisualShade: { opacity: 1 },
-  sportVisualContent: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 14 },
+  sportVisualContent: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 16 },
+  sportVisualImageHero: { top: 54, bottom: 0, height: undefined },
+  sportFallbackIcon: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   sportVisualIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   sportVisualEyebrow: { color: 'rgba(255,255,255,0.72)', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
   sportVisualTitle: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', marginTop: 2 },
@@ -436,8 +435,10 @@ const styles = StyleSheet.create({
   todayPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: accent },
   todayPillText: { fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
-  dashboardBody: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  dashboardMetrics: { flex: 1, gap: 13, paddingLeft: 4 },
+  dashboardBody: { flexDirection: 'row', alignItems: 'center', marginTop: 7 },
+  heroMetricRow: { flexDirection: 'row', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1 },
+  heroMetric: { minHeight: 62, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14 },
+  dashboardMetrics: { flex: 1, gap: 9, paddingLeft: 4 },
   floatingStartButton: { position: 'absolute', right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF7900', shadowColor: '#FF7900', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   pickerBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.58)' },
   pickerSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28 },

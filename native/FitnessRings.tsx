@@ -1,5 +1,6 @@
 import Svg, { Circle, G, Text as SvgText } from 'react-native-svg'
-import { Text, View } from 'react-native'
+import { Animated, Text, View } from 'react-native'
+import { useEffect, useRef } from 'react'
 import { useColorScheme } from 'nativewind'
 import { theme } from '../src/theme'
 
@@ -15,8 +16,18 @@ const ringDefinitions = [
   { key: 'stand', label: 'Stand', goal: 12, unit: 'hrs', color: '#75B9A2', radius: 38 },
 ] as const
 
+function RingArc({ radius, circumference, progress, color, trackColor, strokeWidth }: { radius: number; circumference: number; progress: number; color: string; trackColor: string; strokeWidth: number }) {
+  const animatedProgress = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.timing(animatedProgress, { toValue: progress, duration: 500, useNativeDriver: false }).start()
+  }, [animatedProgress, progress])
+  const dashOffset = animatedProgress.interpolate({ inputRange: [0, 1], outputRange: [circumference, 0] })
+  const AnimatedCircle = Animated.createAnimatedComponent(Circle)
+  return <G><Circle cx={110} cy={110} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} /><AnimatedCircle cx={110} cy={110} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={`${circumference}`} strokeDashoffset={dashOffset} rotation={-90} origin="110, 110" /></G>
+}
+
 export function FitnessRings({ values, compact = false, variant = 'default', darkMode }: { values: FitnessRingValues; compact?: boolean; variant?: 'default' | 'dashboard'; darkMode?: boolean }) {
-  const size = variant === 'dashboard' ? 170 : compact ? 190 : 220
+  const size = variant === 'dashboard' ? 148 : compact ? 180 : 220
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
   const trackColor = dark ? theme.colors.darkBorder : theme.colors.line
@@ -31,22 +42,7 @@ export function FitnessRings({ values, compact = false, variant = 'default', dar
           const circumference = 2 * Math.PI * ring.radius
           const progress = Math.min(1, Math.max(0, value / ring.goal))
           return (
-            <G key={ring.key}>
-              <Circle cx={110} cy={110} r={ring.radius} fill="none" stroke={trackColor} strokeWidth={compact ? 11 : 13} />
-              <Circle
-                cx={110}
-                cy={110}
-                r={ring.radius}
-                fill="none"
-                stroke={ring.color}
-                strokeWidth={compact ? 11 : 13}
-                strokeLinecap="round"
-                strokeDasharray={`${circumference}`}
-                strokeDashoffset={`${circumference * (1 - progress)}`}
-                rotation={-90}
-                origin="110, 110"
-              />
-            </G>
+            <RingArc key={ring.key} radius={ring.radius} circumference={circumference} progress={progress} color={ring.color} trackColor={trackColor} strokeWidth={compact ? 11 : 13} />
           )
         })}
         <SvgText x="110" y="106" textAnchor="middle" fill={foreground} fontSize={compact ? 18 : 21} fontWeight="800">{Math.round(values.exercise)}</SvgText>
