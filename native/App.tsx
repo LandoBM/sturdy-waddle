@@ -381,7 +381,9 @@ export default function NativeApp() {
   const [draftText, setDraftText] = useState('')
   const [draftLocation, setDraftLocation] = useState('')
   const [draftImage, setDraftImage] = useState<string | undefined>()
+  const [draftImageMimeType, setDraftImageMimeType] = useState('image/jpeg')
   const [draftClubId, setDraftClubId] = useState<string | null>(null)
+  const [publishingPost, setPublishingPost] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [activityStore, setActivityStore] = useState<ActivityStore>({ active: null, history: [], points: 0 })
   const [clock, setClock] = useState(Date.now())
@@ -1497,42 +1499,77 @@ export default function NativeApp() {
     setDraftText('')
     setDraftLocation('')
     setDraftImage(undefined)
+    setDraftImageMimeType('image/jpeg')
     setDraftClubId(null)
   }
   const submitPost = async () => {
-    if (!draftText.trim() && !draftImage) return
-    const post: Post = {
-      id: `post-${Date.now()}`,
-      authorId: session?.user.id,
-      author: accountUsername,
-      handle: accountUsername,
-      mine: true,
-      text: draftText.trim(),
-      image: draftImage,
-      location: draftLocation.trim() || undefined,
-      clubId: draftClubId ?? undefined,
-      club: draftClubId ? ownedManagedClubs.find((club) => club.id === draftClubId)?.name : undefined,
-      time: 'Just now',
-      likes: 0,
-      comments: [],
-      liked: false,
-      saved: false,
+    const body = draftText.trim()
+    if (publishingPost || (!body && !draftImage)) return
+    if (!body) {
+      Alert.alert('Add a caption', 'Photo posts need a caption before they can be published.')
+      return
     }
-    setPosts((current) => [post, ...current])
-    if (supabaseClient && session?.user.id && draftText.trim()) {
-      const { error } = await supabaseClient.from('community_posts').insert({
+    if (!supabaseClient || !session?.user.id) {
+      Alert.alert('Unable to publish post', 'Please sign in and try again.')
+      return
+    }
+
+    setPublishingPost(true)
+    let uploadedImagePath: string | null = null
+    try {
+      let imageUrl: string | null = null
+      if (draftImage) {
+        const response = await fetch(draftImage)
+        if (!response.ok) throw new Error('The selected image could not be read.')
+        const imageBlob = new ExpoBlob([await response.arrayBuffer()], { type: draftImageMimeType })
+        if (imageBlob.size > 10 * 1024 * 1024) throw new Error('Images must be 10 MB or smaller.')
+
+        const extension = draftImageMimeType === 'image/png' ? 'png' : draftImageMimeType === 'image/webp' ? 'webp' : 'jpg'
+        uploadedImagePath = `${session.user.id}/post-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+        const { error: uploadError } = await supabaseClient.storage.from('post-media').upload(uploadedImagePath, imageBlob, {
+          contentType: draftImageMimeType,
+          upsert: false,
+        })
+        if (uploadError) throw uploadError
+        imageUrl = supabaseClient.storage.from('post-media').getPublicUrl(uploadedImagePath).data.publicUrl
+      }
+
+      const { data: insertedPost, error } = await supabaseClient.from('community_posts').insert({
         author_id: session.user.id,
-        body: draftText.trim(),
-        image_url: null,
+        body,
+        image_url: imageUrl,
         location: draftLocation.trim() || null,
         club_id: draftClubId,
-      })
-      if (error && !['PGRST205', '42P01'].includes(error.code ?? '')) {
-        Alert.alert('Post saved on this device', `It could not be shared with other accounts yet: ${error.message}`)
+      }).select('id, created_at').single()
+      if (error) throw error
+
+      const post: Post = {
+        id: `remote-${insertedPost.id}`,
+        authorId: session.user.id,
+        author: accountUsername,
+        handle: accountUsername,
+        mine: true,
+        text: body,
+        image: imageUrl ?? undefined,
+        location: draftLocation.trim() || undefined,
+        clubId: draftClubId ?? undefined,
+        club: draftClubId ? ownedManagedClubs.find((club) => club.id === draftClubId)?.name : undefined,
+        time: 'Just now',
+        likes: 0,
+        comments: [],
+        liked: false,
+        saved: false,
       }
+      setPosts((current) => [post, ...current.filter((existing) => existing.id !== post.id)])
+      closeComposer()
+      setTab('feed')
+      setFeedReloadKey((current) => current + 1)
+    } catch (error) {
+      if (uploadedImagePath) await supabaseClient.storage.from('post-media').remove([uploadedImagePath]).catch(() => undefined)
+      Alert.alert('Unable to publish post', error instanceof Error ? error.message : 'Please try again.')
+    } finally {
+      setPublishingPost(false)
     }
-    closeComposer()
-    setTab('feed')
   }
   const pickImage = async (source: 'camera' | 'library') => {
     try {
@@ -1545,7 +1582,10 @@ export default function NativeApp() {
       const result = source === 'camera'
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options)
-      if (!result.canceled) setDraftImage(result.assets[0]?.uri)
+      if (!result.canceled && result.assets[0]?.uri) {
+        setDraftImage(result.assets[0].uri)
+        setDraftImageMimeType(result.assets[0].mimeType ?? 'image/jpeg')
+      }
     } catch (error) {
       Alert.alert('Unable to open photos', error instanceof Error ? error.message : 'Please try again.')
     }
@@ -2063,7 +2103,7 @@ export default function NativeApp() {
             unreadNotificationCount={notifications.filter((notification) => !notification.read_at).length}
             feedMode={feedMode}
             onFeedModeChange={setFeedMode}
-            onCompose={() => { setDraftText(''); setDraftImage(undefined); setDraftClubId(null); setComposing(true) }}
+            onCompose={() => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftClubId(null); setComposing(true) }}
             onLike={toggleLike}
             onSave={toggleSave}
             onComments={setCommentsPostId}
@@ -2308,7 +2348,7 @@ export default function NativeApp() {
             }}
             onOpenProfile={(profileId) => setSelectedPublicProfileId(profileId)}
             onDeletePost={(postId) => { void deletePost(postId) }}
-            onCompose={(clubId) => { setDraftText(''); setDraftImage(undefined); setDraftClubId(clubId); setComposing(true) }}
+            onCompose={(clubId) => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftClubId(clubId); setComposing(true) }}
           />
         </SafeAreaView>}
       </Modal>
@@ -2656,8 +2696,8 @@ export default function NativeApp() {
               <Pressable onPress={closeComposer} className="h-12 flex-1 items-center justify-center rounded-full border border-[#cbd8c5] bg-white dark:border-[#46552d] dark:bg-[#18221a]" accessibilityLabel="Cancel new post">
                 <Text className="text-sm font-extrabold text-ink dark:text-slate-100">Cancel</Text>
               </Pressable>
-              <Pressable onPress={submitPost} disabled={!draftText.trim() && !draftImage} className={`h-12 flex-1 items-center justify-center rounded-full bg-accent-200 ${!draftText.trim() && !draftImage ? 'opacity-50' : ''}`} accessibilityLabel="Publish post">
-                <Text className="text-sm font-extrabold text-ink">Post</Text>
+              <Pressable onPress={() => { void submitPost() }} disabled={publishingPost || (!draftText.trim() && !draftImage)} className={`h-12 flex-1 items-center justify-center rounded-full bg-accent-200 ${publishingPost || (!draftText.trim() && !draftImage) ? 'opacity-50' : ''}`} accessibilityLabel="Publish post">
+                <Text className="text-sm font-extrabold text-ink">{publishingPost ? 'Posting…' : 'Post'}</Text>
               </Pressable>
             </View>
           </KeyboardAvoidingView>
