@@ -3,6 +3,7 @@ import * as Location from 'expo-location'
 import * as TaskManager from 'expo-task-manager'
 import { activityTracksRoute, type ActivityKind } from './activityCatalog'
 import { calculateDistanceMeters, COMPLETION_POINTS } from './activityMetrics'
+import { activityHasRecordedRoute, chooseDemoActivityRouteId, getDemoActivityRoute, stableDemoActivityRouteId } from './demoActivityRoutes'
 
 export {
   COMPLETION_POINTS,
@@ -33,6 +34,7 @@ export interface RecordedActivity {
   distanceMeters: number
   points: ActivityPoint[]
   earnedPoints?: number
+  demoRouteId?: string
 }
 
 export interface ActivityStore {
@@ -69,11 +71,19 @@ export async function loadActivityStore(userId = activityUserId): Promise<Activi
   ) {
     throw new Error('Saved activity data is invalid. Clear app data or reinstall to reset it.')
   }
-  return {
+  const history = (parsed.history as RecordedActivity[]).map((activity) => {
+    if ((activity.demoRouteId && getDemoActivityRoute(activity.demoRouteId)) || activityHasRecordedRoute(activity)) return activity
+    return { ...activity, demoRouteId: stableDemoActivityRouteId(activity.id) }
+  })
+  const store: ActivityStore = {
     active: 'active' in parsed && parsed.active ? parsed.active as RecordedActivity : null,
-    history: parsed.history as RecordedActivity[],
+    history,
     points: parsed.points,
   }
+  if (history.some((activity, index) => activity !== (parsed.history as RecordedActivity[])[index])) {
+    await AsyncStorage.setItem(activityStoreKey(userId), JSON.stringify(store))
+  }
+  return store
 }
 
 async function saveActivityStore(store: ActivityStore, userId = activityUserId) {
@@ -267,6 +277,9 @@ export async function finishActivity() {
     segmentStartedAt: null,
     elapsedSeconds,
     earnedPoints: COMPLETION_POINTS,
+    ...(active.points.length > 1 && active.points.every((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude))
+      ? {}
+      : { demoRouteId: chooseDemoActivityRouteId(store.history) }),
   }
   await saveActivityStore({
     active: null,

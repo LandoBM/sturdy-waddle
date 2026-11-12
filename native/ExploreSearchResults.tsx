@@ -47,7 +47,7 @@ export function ExploreSearchResults({ query, trips, setTab, openTrip, openClub,
       if (!searchTerm || !supabaseClient) {
         setPeople([])
         setClubs([])
-        setError(!supabaseClient && term ? 'Connect Supabase to search people and clubs.' : null)
+        setError(!supabaseClient && term ? 'Search is unavailable right now. Please try again later.' : null)
         return
       }
       setLoading(true)

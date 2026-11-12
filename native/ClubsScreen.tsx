@@ -1,7 +1,8 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import type { ReactNode } from 'react'
 import { useColorScheme } from 'nativewind'
 import { theme } from '../src/theme'
+import type { SampleClub } from './sampleClubs'
 
 export type ClubsScreenProps = {
   styles: Record<string, any>
@@ -23,8 +24,10 @@ export type ClubsScreenProps = {
   categories: string[]
   setCategory: (value: any) => void
   visibleClubs: Array<{ club: any; miles: number }>
+  sampleClubs: SampleClub[]
   joined: string[]
   setSelectedClub: (club: any) => void
+  setSelectedSampleClub: (club: SampleClub) => void
   loadingNearbyPlaces: boolean
   nearbyPlacesError: string
   openNearbyPlace: (place: any) => Promise<void>
@@ -52,7 +55,7 @@ export function ClubsScreen({
   styles, accountUsername, profileAvatarUrl, search, setSearch, postalInput, setPostalInput,
   selectedClubCountry, setCountryCode, searchingPostalCode, searchByPostalCode, locatingClubs,
   findNearbyActivities, locationLabel, nearbyPlaces, category, categories, setCategory, visibleClubs,
-  joined, setSelectedClub, loadingNearbyPlaces, nearbyPlacesError, openNearbyPlace, managedClubs,
+  sampleClubs, joined, setSelectedClub, setSelectedSampleClub, loadingNearbyPlaces, nearbyPlacesError, openNearbyPlace, managedClubs,
   openManagedClub, clubsLoading, clubsError, setClubsReloadKey, ownerStatus, setTab,
   AppIcon, SectionTitle, Avatar, ClubCard, darkMode,
 }: ClubsScreenProps) {
@@ -64,19 +67,15 @@ export function ClubsScreen({
   const foreground = dark ? theme.colors.darkText : theme.colors.ink
   const muted = dark ? theme.colors.darkMuted : theme.colors.muted
   const border = dark ? theme.colors.darkBorder : theme.colors.line
+  const searchTerm = search.trim().toLowerCase()
+  const filteredSampleClubs = sampleClubs.filter((club) => !searchTerm || `${club.name} ${club.sport} ${club.description}`.toLowerCase().includes(searchTerm))
+  const clubResultsCount = filteredSampleClubs.length + visibleClubs.length
 
   return (
     <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={[styles.screenContent, { backgroundColor: background }]} contentContainerClassName="px-[18px] pb-8 pt-5" keyboardShouldPersistTaps="handled">
       <View style={screenStyles.brandHeader}>
-        <View style={screenStyles.brandSpacer} />
         <View style={screenStyles.brandRow}><Text style={[screenStyles.wordmark, { color: foreground }]}>FitHive</Text><Text style={screenStyles.brandDot}>.</Text></View>
-        <Pressable style={[screenStyles.profileButton, { backgroundColor: surface, borderColor: '#FF7900' }]} onPress={() => setTab('profile')} accessibilityLabel="Open profile">
-          <Avatar name={accountUsername} size={36} photoUri={profileAvatarUrl} />
-        </Pressable>
       </View>
-      <Text style={[screenStyles.heading, { color: foreground }]}>Find your people.</Text>
-      <Text style={[screenStyles.subheading, { color: muted }]}>Good company makes every adventure better.</Text>
-      <Text style={[screenStyles.sectionEyebrow, { color: muted }]}>DISCOVER CLUBS</Text>
       <View style={[screenStyles.searchBox, { backgroundColor: surface, borderColor: border }]}>
         <AppIcon name="search-outline" color={muted} />
         <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={muted} style={[styles.searchInput, { color: foreground }]} returnKeyType="search" />
@@ -100,15 +99,26 @@ export function ClubsScreen({
       </Pressable>
       <View style={[screenStyles.locationBanner, { backgroundColor: dark ? '#202823' : '#FFF4EB', borderColor: '#FF7900' }]}>
         <AppIcon name="navigate-outline" color="#FF7900" />
-        <Text style={[styles.locationBannerText, { color: foreground }]}>{locationLabel}<Text style={[styles.mutedText, { color: muted }]}> · {nearbyPlaces.length} places found</Text></Text>
+        <Text style={[styles.locationBannerText, { color: foreground }]}>{locationLabel}<Text style={[styles.mutedText, { color: muted }]}> · {clubResultsCount} clubs found</Text></Text>
       </View>
-      <SectionTitle title="Discover clubs" />
-      <Text style={[styles.nearbyAttribution, { color: muted }]}>Find nearby groups for running, hiking, cycling, wellness, and more.</Text>
+      <SectionTitle title="Discover" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipList}>
         {categories.map((item) => { const selected = category === item; return <Pressable key={item} onPress={() => setCategory(item)} style={[screenStyles.categoryChip, { backgroundColor: selected ? '#FF7900' : surface, borderColor: selected ? '#FF7900' : border }]} accessibilityRole="radio" accessibilityState={{ selected }}><Text style={[screenStyles.categoryText, { color: selected ? '#FFFFFF' : foreground }]}>{item}</Text></Pressable> })}
       </ScrollView>
+      {!!sampleClubs.length && <>
+        <SectionTitle title="Featured clubs" />
+        {filteredSampleClubs.map((club) => (
+            <Pressable key={club.id} style={[screenStyles.sampleCard, { backgroundColor: elevated, borderColor: border }]} onPress={() => setSelectedSampleClub(club)} accessibilityRole="button" accessibilityLabel={`Open sample club ${club.name}`}>
+              <View style={screenStyles.sampleImageWrap}>
+                <Image source={{ uri: club.coverImage }} style={screenStyles.sampleImage} resizeMode="cover" />
+                <View style={screenStyles.sampleSportBadge}><Text style={screenStyles.sampleSportBadgeText}>{club.sport.toUpperCase()}</Text></View>
+              </View>
+              <View style={screenStyles.sampleCopy}><Text style={[screenStyles.sampleName, { color: foreground }]}>{club.name}</Text><Text style={[screenStyles.sampleDescription, { color: muted }]} numberOfLines={2}>{club.description}</Text></View>
+            </Pressable>
+          ))}
+      </>}
       {visibleClubs.map(({ club, miles }) => <ClubCard key={club.id} club={club} miles={miles} joined={joined.includes(club.id)} onPress={() => setSelectedClub(club)} />)}
-      {!visibleClubs.length && <Text style={styles.emptyText}>No clubs within 50 miles match this activity. Try another postal code or category.</Text>}
+      {!visibleClubs.length && <Text style={styles.emptyText}>No clubs match this search. Try another area or category.</Text>}
       <SectionTitle title="Places to move" />
       <Text style={[styles.nearbyAttribution, { color: muted }]}>Parks, trails, sports areas, and fitness places · Map data © OpenStreetMap contributors.</Text>
       {loadingNearbyPlaces && <Text style={[styles.simpleRowSub, { color: muted }]}>Looking for places nearby…</Text>}
@@ -125,18 +135,24 @@ export function ClubsScreen({
       {managedClubs.map((club) => <Pressable key={club.id} style={[styles.simpleRow, { backgroundColor: surface, borderColor: border }]} onPress={() => openManagedClub(club.id)}><Avatar name={club.name} size={42} /><View style={styles.simpleRowCopy}><Text style={[styles.simpleRowTitle, { color: foreground }]}>{club.name}</Text><Text style={[styles.simpleRowSub, { color: muted }]}>{[club.activity, club.location].filter(Boolean).join(' · ') || 'Community club'}</Text></View><AppIcon name="chevron-forward" color={muted} /></Pressable>)}
       {clubsLoading && <Text style={styles.simpleRowSub}>Loading community club pages…</Text>}
       {!!clubsError && <View style={styles.clubLoadError}><Text style={styles.clubLoadErrorTitle}>Couldn’t load all club data</Text><Text style={styles.clubLoadErrorText}>{clubsError}</Text><Pressable onPress={() => setClubsReloadKey((key) => key + 1)} style={styles.clubRetryButton}><Text style={styles.clubRetryText}>Try again</Text></Pressable></View>}
-      {!clubsLoading && !clubsError && managedClubs.length === 0 && <View style={styles.clubEmptyCard}><Text style={styles.clubEmptyTitle}>Your account is ready for clubs</Text><Text style={styles.clubEmptyText}>Signing up creates your member profile, but not a club page. Club pages appear here after a verified club owner creates one.</Text><Pressable onPress={() => setTab('owner')} style={styles.clubRetryButton}><Text style={styles.clubRetryText}>{ownerStatus === 'verified' ? 'Manage club pages' : 'Club owner access'}</Text></Pressable></View>}
+      {!clubsLoading && !clubsError && managedClubs.length === 0 && <View style={styles.clubEmptyCard}><Text style={styles.clubEmptyTitle}>No club pages yet</Text><Text style={styles.clubEmptyText}>Create or manage a club page from owner access.</Text><Pressable onPress={() => setTab('owner')} style={styles.clubRetryButton}><Text style={styles.clubRetryText}>{ownerStatus === 'verified' ? 'Manage club pages' : 'Club owner access'}</Text></Pressable></View>}
     </ScrollView>
   )
 }
 
 const screenStyles = StyleSheet.create({
   brandHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, marginBottom: 16 },
-  brandSpacer: { width: 44 },
   brandRow: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' },
   wordmark: { fontSize: 25, fontWeight: '800', letterSpacing: -1.1 },
   brandDot: { color: '#FF7900', fontSize: 27, fontWeight: '900' },
-  profileButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 2, padding: 2 },
+  sampleCard: { marginBottom: 16, borderWidth: 1, borderRadius: 26, overflow: 'hidden', shadowColor: '#17351e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 5 },
+  sampleImageWrap: { width: '100%', height: 168, position: 'relative', backgroundColor: '#d7dbcf' },
+  sampleImage: { width: '100%', height: 168, backgroundColor: '#d7dbcf' },
+  sampleSportBadge: { position: 'absolute', top: 12, left: 12, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6, backgroundColor: '#FFFFFFF2' },
+  sampleSportBadgeText: { color: '#17191D', fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
+  sampleCopy: { padding: 16 },
+  sampleName: { fontSize: 19, fontWeight: '900', marginBottom: 5 },
+  sampleDescription: { fontSize: 12, lineHeight: 17 },
   heading: { fontSize: 29, fontWeight: '800', letterSpacing: -1 },
   subheading: { marginTop: 5, marginBottom: 18, fontSize: 13, lineHeight: 19 },
   sectionEyebrow: { marginBottom: 9, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },

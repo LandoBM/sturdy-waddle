@@ -23,7 +23,7 @@ export function OwnerAccessScreen({
     setError('')
     setMessage('')
     if (organization.trim().length < 2 || !acceptedTerms || !acceptedOwnerDraft) {
-      setError('Enter your club name and accept both draft documents to continue.')
+      setError('Enter your club name and accept both safety documents to continue.')
       return
     }
     setBusy(true)
@@ -73,14 +73,14 @@ export function OwnerAccessScreen({
           <Text style={styles.heading}>Certify this account as a club owner</Text>
           <Text style={styles.copy}>This project currently uses email confirmation only. It does not verify that you legally represent a club or organization.</Text>
           <TextInput value={organization} onChangeText={setOrganization} placeholder="Club or organization name" style={styles.input} />
-          <Text style={styles.legal}>The terms and club-owner safety documents below are draft placeholders, not legal advice or a finalized waiver. They do not promise to release the developer from liability. Have qualified counsel replace and approve them before launch.</Text>
+          <Text style={styles.legal}>The terms and club-owner safety documents are not legal advice or a finalized waiver. Have qualified counsel review and approve them before use.</Text>
           <Pressable onPress={() => setAcceptedTerms((value) => !value)} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }}>
             <Text style={styles.check}>{acceptedTerms ? '☑' : '□'}</Text>
-            <Text style={styles.checkLabel}>I reviewed and accept the draft terms, version {LEGAL_DOCUMENT_VERSION}.</Text>
+            <Text style={styles.checkLabel}>I reviewed and accept the terms, version {LEGAL_DOCUMENT_VERSION}.</Text>
           </Pressable>
           <Pressable onPress={() => setAcceptedOwnerDraft((value) => !value)} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedOwnerDraft }}>
             <Text style={styles.check}>{acceptedOwnerDraft ? '☑' : '□'}</Text>
-            <Text style={styles.checkLabel}>I reviewed and accept the draft club-owner documents.</Text>
+            <Text style={styles.checkLabel}>I reviewed and accept the club-owner documents.</Text>
           </Pressable>
           <Pressable onPress={() => { void requestAccess() }} disabled={busy} style={[styles.button, busy && styles.disabled]}>
             <Text style={styles.buttonText}>{busy ? 'Saving…' : 'Request owner access'}</Text>

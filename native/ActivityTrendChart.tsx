@@ -30,7 +30,7 @@ export function ActivityTrendChart({ data, dark }: { data: ActivityTrendPoint[];
   const polyline = points.map((point) => `${point.x},${point.y}`).join(' ')
 
   return (
-    <Animated.View style={{ backgroundColor: surface, borderColor: grid, borderWidth: 1, borderRadius: 24, padding: 16, opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
+    <Animated.View style={{ backgroundColor: surface, borderColor: grid, borderWidth: 1, borderRadius: 24, padding: theme.spacing.lg, opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <View><Text style={{ color: foreground, fontSize: 16, fontWeight: '800' }}>Activity progress</Text><Text style={{ color: muted, fontSize: 10, marginTop: 3 }}>Recorded movement · last 7 days</Text></View>
         {data.length > 0 && <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: '800' }}>{data.reduce((total, point) => total + point.minutes, 0)} min</Text>}

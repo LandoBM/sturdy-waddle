@@ -203,12 +203,10 @@ export function FeedScreen({
           </Pressable>
         </View>
       </View>
-      <Text style={[styles.heading, { color: foreground }]}>Your community.</Text>
-      <Text style={[styles.subheading, { color: muted }]}>Every adventure is better together.</Text>
       <View style={[styles.feedModeControl, { backgroundColor: dark ? '#17191D' : '#FFFFFF', borderColor: dark ? '#303238' : '#E7EAE4' }]} accessibilityRole="tablist">
         {([['forYou', 'For You'], ['following', 'Following']] as const).map(([mode, label]) => <Pressable key={mode} onPress={() => onFeedModeChange(mode)} style={[styles.feedModeButton, feedMode === mode && styles.feedModeButtonActive]} accessibilityRole="tab" accessibilityState={{ selected: feedMode === mode }}><Text style={[styles.feedModeLabel, { color: feedMode === mode ? '#FFFFFF' : foreground }]}>{label}</Text></Pressable>)}
       </View>
-      {loading && <View style={styles.loadingRow}><ActivityIndicator color={palette.orange} /><Text style={[styles.meta, { color: muted }]}>Refreshing your community…</Text></View>}
+      {loading && <View style={styles.loadingRow}><ActivityIndicator color={palette.orange} /><Text style={[styles.meta, { color: muted }]}>Loading…</Text></View>}
       {!!error && <View style={[styles.errorCard, { backgroundColor: dark ? '#2A1814' : '#FFF1EC', borderColor: dark ? '#6C3424' : '#FFC5B2' }]}><Text style={[styles.errorText, { color: dark ? '#FFD0C0' : '#9D351B' }]}>{error}</Text><Pressable onPress={onRefresh} style={styles.retryButton} accessibilityRole="button" accessibilityLabel="Retry loading feed"><Text style={styles.retryText}>Retry</Text></Pressable></View>}
     </View>
   ), [dark, foreground, muted, hasUnreadNotifications, unreadNotificationCount, onOpenNotifications, onCompose, feedMode, onFeedModeChange, loading, error, onRefresh])
@@ -237,11 +235,11 @@ export function FeedScreen({
       ListHeaderComponent={header}
       ListEmptyComponent={
         loading
-          ? <View style={[styles.emptyCard, { backgroundColor: dark ? palette.darkSurface : '#FFFFFF', borderColor: dark ? palette.darkBorder : palette.lightBorder }]}><ActivityIndicator color={palette.orange} /><Text style={[styles.emptyBody, { color: muted }]}>Loading your community…</Text></View>
+          ? <View style={[styles.emptyCard, { backgroundColor: dark ? palette.darkSurface : '#FFFFFF', borderColor: dark ? palette.darkBorder : palette.lightBorder }]}><ActivityIndicator color={palette.orange} /><Text style={[styles.emptyBody, { color: muted }]}>Loading…</Text></View>
           : <View style={[styles.emptyCard, { backgroundColor: dark ? palette.darkSurface : '#FFFFFF', borderColor: dark ? palette.darkBorder : palette.lightBorder }]}>
             <Icon name="people-outline" color={palette.orange} size={35} />
-            <Text style={[styles.emptyTitle, { color: foreground }]}>Your next adventure starts here.</Text>
-            <Text style={[styles.emptyBody, { color: muted }]}>Discover activities, follow other members, or create your first post.</Text>
+            <Text style={[styles.emptyTitle, { color: foreground }]}>No posts yet.</Text>
+            <Text style={[styles.emptyBody, { color: muted }]}>Follow people or create a post.</Text>
             <Pressable onPress={onCompose} style={styles.emptyButton} accessibilityRole="button" accessibilityLabel="Create your first post">
               <Icon name="add" color="#FFFFFF" size={20} />
               <Text style={styles.emptyButtonText}>Create a post</Text>
@@ -265,7 +263,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 32, flexGrow: 1 },
   headerArea: { marginBottom: 22 },
-  headerRow: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  headerRow: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   headerSide: { width: 104 },
   headerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   headerIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
@@ -276,7 +274,7 @@ const styles = StyleSheet.create({
   unreadBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900' },
   heading: { fontSize: 27, fontWeight: '800', letterSpacing: -0.9 },
   subheading: { fontSize: 13, marginTop: 5 },
-  feedModeControl: { flexDirection: 'row', padding: 4, borderRadius: 20, borderWidth: 1, marginTop: 17, marginBottom: 3 },
+  feedModeControl: { flexDirection: 'row', padding: 4, borderRadius: 20, borderWidth: 1, marginTop: 0, marginBottom: 3 },
   feedModeButton: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 17 },
   feedModeButtonActive: { backgroundColor: palette.orange },
   feedModeLabel: { fontSize: 11, fontWeight: '900' },

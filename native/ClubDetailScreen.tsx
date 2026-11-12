@@ -22,9 +22,26 @@ type Profile = { id: string; display_name?: string | null; username?: string | n
 type ClubPost = { id: string; author_id: string; body: string; image_url?: string | null; created_at: string; author?: Profile }
 
 async function resolveClubMedia(client: SupabaseClient, value: string | null | undefined) {
-  if (!value || value.startsWith('http')) return value ?? null
-  const { data, error } = await client.storage.from('club-media').createSignedUrl(value, 60 * 60)
-  return error ? null : data?.signedUrl ?? null
+  if (!value) return null
+  const normalized = value.trim()
+  if (!normalized) return null
+
+  // Older saves may have stored a Supabase Storage URL instead of the object
+  // path. Private buckets still require a fresh signed URL for rendering.
+  const marker = '/storage/v1/object/'
+  const markerIndex = normalized.indexOf(marker)
+  if (normalized.startsWith('http') && markerIndex < 0) return normalized
+  const objectPath = markerIndex >= 0
+    ? decodeURIComponent(normalized.slice(markerIndex).split('/club-media/')[1]?.split('?')[0] ?? '')
+    : normalized
+  if (!objectPath) return null
+
+  const { data, error } = await client.storage.from('club-media').createSignedUrl(objectPath, 60 * 60)
+  if (error) {
+    if (__DEV__) console.warn('[ClubDetail] unable to sign club media URL', { message: error.message, objectPath })
+    return null
+  }
+  return data?.signedUrl ?? null
 }
 
 export function ClubDetailScreen({ client, clubId, currentUserId, darkMode = false, AppIcon, onBack, onOpenProfile, onCompose, onDeletePost, postReloadKey = 0, targetPostId = null }: ClubDetailScreenProps) {

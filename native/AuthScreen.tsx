@@ -67,11 +67,11 @@ export function AuthScreen({ client }: { client: SupabaseClient | null }) {
       return
     }
     if (mode === 'sign_up' && !acceptedTerms) {
-      setError('Review and accept the draft terms to continue.')
+      setError('Review and accept the terms to continue.')
       return
     }
     if (mode === 'sign_up' && accountKind === 'club_owner' && !acceptedOwnerDraft) {
-      setError('Review and accept the draft club-owner documents to continue.')
+      setError('Review and accept the club-owner safety documents to continue.')
       return
     }
 
@@ -85,7 +85,7 @@ export function AuthScreen({ client }: { client: SupabaseClient | null }) {
           candidate: normalizedUsername,
         })
         if (usernameError) {
-          throw new Error(`Could not check username availability. Apply the username migration in Supabase, then try again. ${usernameError.message}`)
+          throw new Error('Could not check username availability. Please try again.')
         }
         if (!usernameAvailable) {
           throw new Error('That username is already taken. Choose another one.')
@@ -125,8 +125,8 @@ export function AuthScreen({ client }: { client: SupabaseClient | null }) {
           <View style={styles.fallbackPage}>
             <BrandBanner width={width} />
             <View style={styles.fallbackSurface}>
-              <Text style={styles.heading}>Connect your account service</Text>
-              <Text style={styles.supportingText}>Set your Supabase environment values, then restart Expo to connect FitHive.</Text>
+              <Text style={styles.heading}>Sign-in unavailable</Text>
+              <Text style={styles.supportingText}>Please try again later.</Text>
             </View>
           </View>
         </SafeAreaView>
@@ -146,7 +146,6 @@ export function AuthScreen({ client }: { client: SupabaseClient | null }) {
             <View style={styles.spacer} />
             <View style={styles.formSurface}>
         <Text style={styles.heading}>{mode === 'sign_in' ? 'Welcome back.' : 'Join the community.'}</Text>
-        <Text style={styles.supportingText}>{mode === 'sign_in' ? 'Your next adventure starts here.' : 'Create your account and go further together.'}</Text>
         {mode === 'sign_up' && (
           <>
             <View style={styles.accountSwitch}>
@@ -183,19 +182,19 @@ export function AuthScreen({ client }: { client: SupabaseClient | null }) {
         {mode === 'sign_in' && <Pressable onPress={() => { void resetPassword() }} disabled={busy} style={styles.forgotButton}><Text style={styles.orangeText}>Forgot password?</Text></Pressable>}
         {mode === 'sign_up' && (
           <View style={styles.legalBox}>
-            <Text style={styles.legalTitle}>Draft terms and safety notice</Text>
-            <Text style={styles.legalCopy}>These documents are placeholders, not legal advice or a finalized waiver. They do not promise to release FitHive or its developers from liability. Have qualified counsel review and replace this draft before launch.</Text>
+            <Text style={styles.legalTitle}>Terms and safety</Text>
+            <Text style={styles.legalCopy}>These documents are not legal advice or a finalized waiver. Review them carefully and have qualified counsel approve them before use.</Text>
             <Pressable onPress={() => setAcceptedTerms((value) => !value)} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }}>
               <Text style={styles.check}>{acceptedTerms ? '☑' : '□'}</Text>
-              <Text style={styles.checkLabel}>I have reviewed and accept the draft terms (version {LEGAL_DOCUMENT_VERSION}).</Text>
+              <Text style={styles.checkLabel}>I have reviewed and accept the terms (version {LEGAL_DOCUMENT_VERSION}).</Text>
             </Pressable>
             {accountKind === 'club_owner' && (
               <>
-                <Text style={styles.legalTitle}>Club-owner responsibilities (draft)</Text>
-                <Text style={styles.legalCopy}>Club owners are responsible for accurate event details, member communications, and appropriate safety planning. This draft must be replaced with counsel-approved documents.</Text>
+                <Text style={styles.legalTitle}>Club-owner responsibilities</Text>
+                <Text style={styles.legalCopy}>Club owners are responsible for accurate event details, member communications, and appropriate safety planning.</Text>
                 <Pressable onPress={() => setAcceptedOwnerDraft((value) => !value)} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedOwnerDraft }}>
                   <Text style={styles.check}>{acceptedOwnerDraft ? '☑' : '□'}</Text>
-                  <Text style={styles.checkLabel}>I have reviewed and accept the draft club-owner documents.</Text>
+                  <Text style={styles.checkLabel}>I have reviewed and accept the club-owner documents.</Text>
                 </Pressable>
               </>
             )}

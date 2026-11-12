@@ -10,7 +10,7 @@ import * as Notifications from 'expo-notifications'
 import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
 import { useColorScheme } from 'nativewind'
-import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   AppState,
   Alert,
@@ -43,8 +43,10 @@ import { ProfileScreen } from './ProfileScreen'
 import { SettingsScreen } from './SettingsScreen'
 import { FitnessRings, type FitnessRingValues } from './FitnessRings'
 import { AuthScreen } from './AuthScreen'
+import { LaunchExperience } from './LaunchExperience'
 import { OwnerAccessScreen } from './OwnerAccessScreen'
 import { OwnerTools } from './OwnerTools'
+import { selectRandomSampleClubGroup, type SampleClub } from './sampleClubs'
 import { fetchNearbyPlaces, lookupPostalLocation, type NearbyPlace } from './nearbyPlaces'
 import {
   beginActivity,
@@ -55,6 +57,7 @@ import {
   setActivityUserId,
   type ActivityKind,
   type ActivityStore,
+  type RecordedActivity,
 } from './activity'
 import {
   loadDailyFitnessMetrics,
@@ -69,6 +72,9 @@ import {
 } from './health'
 import { supabaseClient } from './supabase'
 import type { Session } from '@supabase/supabase-js'
+import * as SplashScreen from 'expo-splash-screen'
+
+void SplashScreen.preventAutoHideAsync().catch(() => undefined)
 
 type Tab = 'home' | 'schedule' | 'activity' | 'feed' | 'explore' | 'profile' | 'owner'
 type IconName = ComponentProps<typeof Ionicons>['name']
@@ -363,6 +369,9 @@ export default function NativeApp() {
   const [reserved, setReserved] = useState(['t3', 't6'])
   const [posts, setPosts] = useState<Post[]>(seedPosts)
   const [selectedClub, setSelectedClub] = useState<Club | null>(null)
+  const [sampleClubs, setSampleClubs] = useState<SampleClub[]>([])
+  const sampleGroupIdRef = useRef<string | undefined>(undefined)
+  const [selectedSampleClub, setSelectedSampleClub] = useState<SampleClub | null>(null)
   const [selectedRemoteClubId, setSelectedRemoteClubId] = useState<string | null>(null)
   const [targetClubPostId, setTargetClubPostId] = useState<string | null>(null)
   const [returnToNotifications, setReturnToNotifications] = useState(false)
@@ -444,6 +453,13 @@ export default function NativeApp() {
   const [flightStatus, setFlightStatus] = useState<FlightStatus | null>(null)
   const [flightLookupError, setFlightLookupError] = useState('')
   const [lookingUpFlight, setLookingUpFlight] = useState(false)
+  const [launchFinished, setLaunchFinished] = useState(false)
+
+  const handleLaunchReady = useCallback(() => {
+    void SplashScreen.hideAsync()
+      .then(() => { if (__DEV__) console.log('[Launch] native splash hidden') })
+      .catch((error: unknown) => { if (__DEV__) console.warn('[Launch] native splash hide failed', error) })
+  }, [])
 
   useEffect(() => {
     if (!supabaseClient) {
@@ -507,7 +523,7 @@ export default function NativeApp() {
         setProfileBio(bio)
         setOwnerStatus(data?.owner_status === 'verified' || data?.owner_status === 'pending' ? data.owner_status : 'none')
         setAccountSettingsError(bioError
-          ? 'Your account loaded, but profile editing needs the profile migrations applied in Supabase (202611050002_profile_bio.sql, 202611050003_usernames.sql, and 202611050004_profile_photos.sql).'
+          ? 'Your account loaded, but profile editing is unavailable. Please try again.'
           : '')
       }
       if (data?.owner_status === 'pending') {
@@ -526,8 +542,7 @@ export default function NativeApp() {
     }
     loadProfile().catch((error: unknown) => {
       if (active) {
-        const details = error instanceof Error ? error.message : 'Please try again.'
-        setAccountSettingsError(`Account settings could not load from Supabase: ${details} Check that the account, profile, username, and profile photo migrations have been applied.`)
+        setAccountSettingsError('Account settings could not load. Please try again.')
       }
     })
     return () => { active = false }
@@ -560,7 +575,7 @@ export default function NativeApp() {
       setFollowersCount(count ?? 0)
     }
     loadSocialGraph().catch((error: unknown) => {
-      if (active) setAccountSettingsError(`Social connections could not load: ${error instanceof Error ? error.message : 'Apply the social follows migration in Supabase.'}`)
+      if (active) setAccountSettingsError('Social connections could not load. Please try again.')
     })
     return () => { active = false }
   }, [session?.user.id, profileUsername, session?.user.user_metadata?.username, session?.user.email])
@@ -939,6 +954,37 @@ export default function NativeApp() {
     }
   }
 
+  const finishActivityAction = async (): Promise<RecordedActivity | null> => {
+    try {
+      const completed = await finishActivity()
+      setActivityStore(await getActivityStore())
+      if (completed) {
+        await new Promise<void>((resolve) => {
+          let resolved = false
+          const finishConfirmation = () => {
+            if (resolved) return
+            resolved = true
+            resolve()
+          }
+          Alert.alert('Activity complete!', `You earned ${completed.earnedPoints ?? 0} points. Great work!`, [{ text: 'Continue', onPress: finishConfirmation }], { onDismiss: finishConfirmation })
+        })
+      }
+      return completed
+    } catch (error) {
+      Alert.alert('Activity tracker', error instanceof Error ? error.message : 'The activity could not be completed.')
+      return null
+    }
+  }
+
+  const openActivityPostComposer = (imageUri: string, caption: string) => {
+    setDraftText(caption)
+    setDraftImage(imageUri)
+    setDraftImageMimeType('image/png')
+    setDraftLocation('')
+    setDraftClubId(null)
+    setComposing(true)
+  }
+
   const connectHealthProvider = async () => {
     setSyncingHealth(true)
     try {
@@ -1023,6 +1069,14 @@ export default function NativeApp() {
     if (!clubCountries.some(({ code }) => code === country) || !/^[\p{L}\d][\p{L}\d -]{0,11}$/u.test(postalCode)) {
       Alert.alert('Check your location', 'Choose the United States, Canada, or United Kingdom and enter a valid postal code.')
       return
+    }
+    if (country === 'US' && /^\d{5}$/.test(postalCode)) {
+      const nextGroup = selectRandomSampleClubGroup(sampleGroupIdRef.current)
+      sampleGroupIdRef.current = nextGroup.id
+      setSampleClubs(nextGroup.clubs)
+    } else {
+      sampleGroupIdRef.current = undefined
+      setSampleClubs([])
     }
     setSearchingPostalCode(true)
     try {
@@ -1222,7 +1276,7 @@ export default function NativeApp() {
           contentType: editAvatarMimeType,
           upsert: false,
         })
-        if (uploadError) throw new Error(`Could not upload profile photo: ${uploadError.message}. Apply the profile photo migration and try again.`)
+        if (uploadError) throw new Error('Could not upload profile photo. Please try again.')
         uploadedAvatarPath = newAvatarPath
         avatarUrl = supabaseClient.storage.from('avatars').getPublicUrl(newAvatarPath).data.publicUrl
       } else if (avatarChanged) {
@@ -1233,11 +1287,11 @@ export default function NativeApp() {
       if (error) {
         const message = error.code === '23505'
           ? 'That username is already taken. Choose another one.'
-          : `${error.message} Confirm that 202611050002_profile_bio.sql, 202611050003_usernames.sql, and 202611050004_profile_photos.sql have been applied in Supabase and that profile update permissions are enabled.`
+          : 'Could not save your profile. Please try again.'
         throw new Error(message)
       }
       if (!data) {
-        throw new Error('Your profile row was not found. Apply the account migration in Supabase, then sign out and back in.')
+        throw new Error('Your profile could not be found. Please sign out and try again.')
       }
       uploadedAvatarPath = null
       setProfileName(displayName)
@@ -1356,7 +1410,7 @@ export default function NativeApp() {
     } catch (error) {
       setFollowedHandles((current) => wasFollowing ? [...current, normalizedHandle] : current.filter((item) => item !== normalizedHandle))
       setFollowingCount((current) => Math.max(0, current + (wasFollowing ? 1 : -1)))
-      Alert.alert('Could not update follow', error instanceof Error ? error.message : 'Apply the social follows migration in Supabase, then try again.')
+      Alert.alert('Could not update follow', error instanceof Error ? error.message : 'Please try again.')
     }
   }
   const loadNotifications = async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -1745,8 +1799,15 @@ export default function NativeApp() {
       categories={categories}
       setCategory={setCategory}
       visibleClubs={visibleClubs}
+      sampleClubs={sampleClubs}
       joined={joined}
-      setSelectedClub={setSelectedClub}
+      setSelectedClub={(club) => {
+        const clubId = typeof club?.id === 'string' ? club.id : ''
+        const isSupabaseClubId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clubId)
+        if (isSupabaseClubId && supabaseClient) setSelectedRemoteClubId(clubId)
+        else setSelectedClub(club)
+      }}
+      setSelectedSampleClub={setSelectedSampleClub}
       loadingNearbyPlaces={loadingNearbyPlaces}
       nearbyPlacesError={nearbyPlacesError}
       openNearbyPlace={openNearbyPlace}
@@ -1982,7 +2043,7 @@ export default function NativeApp() {
         <View style={styles.accountActions}>
           <Pressable style={styles.accountAction} className="border-[#dfe7d9] bg-white dark:border-[#2a3b30] dark:bg-[#132018]" onPress={() => setTab('owner')}>
             <Text style={styles.simpleRowTitle} className="dark:text-[#f3f7f0]">{ownerStatus === 'verified' ? 'Manage your clubs' : ownerStatus === 'pending' ? 'Finish club owner verification' : 'Get club owner certified'}</Text>
-            <Text style={styles.simpleRowSub} className="dark:text-[#9eafa2]">{ownerStatus === 'verified' ? 'Create club pages and manage members and updates.' : 'Confirm your email and review the draft owner documents.'}</Text>
+            <Text style={styles.simpleRowSub} className="dark:text-[#9eafa2]">{ownerStatus === 'verified' ? 'Manage clubs and members.' : 'Verify your owner access.'}</Text>
           </Pressable>
         </View>
       </View>
@@ -2056,7 +2117,6 @@ export default function NativeApp() {
               </View>
             ) : <AppIcon name={active ? (activeTabIcons[item.id] ?? item.icon) : item.icon} size={23} color={active ? '#FF7900' : (isDark ? '#9CA6A0' : '#73776D')} />}
             <Text style={[styles.tabLabel, { color: active ? '#FF7900' : (isDark ? '#9CA6A0' : '#73776D') }, active && styles.tabLabelActive]}>{item.label}</Text>
-            {active && <View style={styles.tabIndicator} />}
           </Pressable>
         )
       })}
@@ -2064,11 +2124,15 @@ export default function NativeApp() {
   )
 
   if (authLoading || !fontsLoaded || !appearanceReady) {
-    return <SafeAreaView style={styles.safeArea}><View style={styles.authLoading}><Text style={styles.authLoadingText}>Loading your account…</Text></View></SafeAreaView>
+    return <View style={styles.startupRoot}><LaunchExperience ready={false} onReady={handleLaunchReady} onFinished={() => setLaunchFinished(true)} /></View>
   }
-  if (!session) return <AuthScreen client={supabaseClient} />
+  if (!session) {
+    if (__DEV__) console.log('[Launch] authentication resolved: unauthenticated')
+    return <View style={styles.startupRoot}><AuthScreen client={supabaseClient} /><LaunchExperience ready onReady={handleLaunchReady} onFinished={() => { if (__DEV__) console.log('[Launch] navigation to Login'); setLaunchFinished(true) }} /></View>
+  }
 
   return (
+    <View style={styles.startupRoot}>
     <SafeAreaView style={[styles.safeArea, { backgroundColor: themeBackground }]} edges={['top']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.appBody}>
@@ -2081,7 +2145,8 @@ export default function NativeApp() {
             onStart={(kind: ActivityKind) => runActivityAction(() => beginActivity(kind))}
             onPause={() => { void runActivityAction(pauseActivity) }}
             onResume={() => { void runActivityAction(resumeActivity) }}
-            onFinish={() => { void runActivityAction(finishActivity) }}
+            onFinish={finishActivityAction}
+            onPostToFeed={openActivityPostComposer}
             ringMetrics={ringMetricsForDate(new Date())}
             darkMode={isDark}
             bottomTabs={renderBottomTabs()}
@@ -2122,6 +2187,37 @@ export default function NativeApp() {
         )}
       </View>
       {renderBottomTabs()}
+
+      <Modal
+        visible={!!selectedSampleClub}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        allowSwipeDismissal
+        onRequestClose={() => setSelectedSampleClub(null)}
+        onDismiss={() => setSelectedSampleClub(null)}
+      >
+        {selectedSampleClub && <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={['top', 'bottom']}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 28, backgroundColor: themeBackground }}>
+            <View style={{ height: 280, position: 'relative', overflow: 'hidden', backgroundColor: '#17191D' }}>
+              <Image source={{ uri: selectedSampleClub.coverImage }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 150, backgroundColor: 'rgba(0,0,0,0.62)' }} />
+              <Pressable style={[styles.closeButton, { top: 16, left: 16, right: undefined }]} onPress={() => setSelectedSampleClub(null)} accessibilityLabel="Close sample club">
+                <AppIcon name="chevron-back" color={colors.white} />
+              </Pressable>
+              <View style={{ position: 'absolute', left: 18, right: 18, bottom: 22 }}>
+                <Text style={{ color: '#FF8A3D', fontSize: 10, fontWeight: '900', letterSpacing: 1.1 }}>{selectedSampleClub.sport.toUpperCase()}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 30, lineHeight: 35, fontWeight: '900', marginTop: 5 }}>{selectedSampleClub.name}</Text>
+              </View>
+            </View>
+            <View style={{ padding: 18, backgroundColor: themeSurface, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
+              <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 9, backgroundColor: '#FF5A1F22' }}><Text style={{ color: '#FF5A1F', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 }}>PREVIEW CLUB</Text></View>
+              <Text style={{ color: foreground, fontSize: 19, fontWeight: '900', marginTop: 18, marginBottom: 7 }}>About this club</Text>
+              <Text style={{ color: themeMuted, fontSize: 13, lineHeight: 20 }}>{selectedSampleClub.description}</Text>
+              <Text style={{ color: themeMuted, fontSize: 11, lineHeight: 17, marginTop: 16 }}>Preview content. Memberships, posts, and notifications aren’t available.</Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>}
+      </Modal>
 
       <Modal
         visible={!!selectedClub}
@@ -2527,7 +2623,7 @@ export default function NativeApp() {
                 <Text style={[styles.simpleRowSub, { color: themeMuted }]}>{session?.user.email || 'Not available'}</Text>
               </View>
             </View>
-            <Text style={styles.settingsSectionLabel}>PREFERENCES & CONNECTED APPS</Text>
+            <Text style={styles.settingsSectionLabel}>PREFERENCES</Text>
             <View style={[styles.appearanceCard, settingsSurface]}>
               <View style={styles.appearanceHeader}>
                 <View style={styles.appearanceIcon}>
@@ -2535,7 +2631,6 @@ export default function NativeApp() {
                 </View>
                 <View style={styles.settingsRowCopy}>
                   <Text style={[styles.simpleRowTitle, { color: themeText }]}>Appearance</Text>
-                  <Text style={[styles.simpleRowSub, { color: themeMuted }]}>Choose how FitHive looks on this device</Text>
                 </View>
               </View>
               <View style={styles.appearanceOptions}>
@@ -2599,7 +2694,7 @@ export default function NativeApp() {
               <AppIcon name="navigate-circle-outline" color="#FF7900" />
               <View style={styles.settingsRowCopy}>
                 <Text style={[styles.simpleRowTitle, { color: themeText }]}>Activity tracking</Text>
-                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>GPS tracking, routes, and activity history</Text>
+                <Text style={[styles.simpleRowSub, { color: themeMuted }]}>Routes and activity history</Text>
               </View>
               <AppIcon name="chevron-forward" color={colors.muted} />
             </Pressable>
@@ -2704,10 +2799,13 @@ export default function NativeApp() {
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
+    {!launchFinished && <LaunchExperience ready onReady={handleLaunchReady} onFinished={() => { if (__DEV__) console.log('[Launch] navigation to Feed'); setLaunchFinished(true) }} />}
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  startupRoot: { flex: 1, backgroundColor: '#090A0C' },
   safeArea: { flex: 1, backgroundColor: colors.paper },
   appBody: { flex: 1 },
   authLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -2910,7 +3008,6 @@ const styles = StyleSheet.create({
   tabButtonPressed: { opacity: 0.72, transform: [{ scale: 0.96 }] },
   tabLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
   tabLabelActive: { fontWeight: '800' },
-  tabIndicator: { width: 24, height: 3, borderRadius: 2, backgroundColor: theme.colors.accent, position: 'absolute', top: 2 },
   profileTabRing: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
   profileTabRingActive: { borderColor: '#FF7900' },
   modalSafe: { flex: 1, backgroundColor: colors.paper },

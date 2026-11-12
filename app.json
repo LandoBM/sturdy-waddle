@@ -12,7 +12,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FitHive uses your location while you record a hike or run.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "FitHive uses your location during an activity, including when the screen is locked, so your route and distance keep recording.",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -72,7 +74,10 @@
             "targetSdkVersion": 36
           }
         }
-      ]
+      ],
+      "expo-video",
+      "expo-splash-screen",
+      "expo-font"
     ],
     "web": {
       "bundler": "metro"
