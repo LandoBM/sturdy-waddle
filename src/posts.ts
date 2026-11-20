@@ -36,6 +36,7 @@ export interface Post {
   mediaType?: 'photo' | 'video'
   mediaUrl?: string
   thumbnail?: string
+  imageSource?: number
   durationSeconds?: number
   demo?: boolean
   location?: string

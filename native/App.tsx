@@ -2711,7 +2711,7 @@ export default function NativeApp() {
       {selectedTrip && <BottomSheet visible onClose={() => setSelectedTrip(null)} backgroundColor={themeBackground} borderColor={themeBorder} maxHeight="92%" accessibilityLabel={`${selectedTrip.title} activity details`}>
           <BottomSheetScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
             <View style={styles.modalImageWrap}>
-              {selectedTrip.image ? <Image source={{ uri: selectedTrip.image }} style={styles.modalHeroImage} /> : <View style={[styles.modalHeroImage, { backgroundColor: '#24262B', alignItems: 'center', justifyContent: 'center' }]}><AppIcon name="images-outline" size={38} color="#A1A1AA" /></View>}
+              {selectedTrip.image || (selectedTrip as Trip & { imageSource?: number }).imageSource ? <Image source={(selectedTrip as Trip & { imageSource?: number }).imageSource ?? { uri: selectedTrip.image }} style={styles.modalHeroImage} /> : <View style={[styles.modalHeroImage, { backgroundColor: '#24262B', alignItems: 'center', justifyContent: 'center' }]}><AppIcon name="images-outline" size={38} color="#A1A1AA" /></View>}
               <View style={{ position: 'absolute', top: 14, left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Pressable style={styles.closeButton} onPress={() => setSelectedTrip(null)} accessibilityLabel="Close activity details"><AppIcon name="close" color={colors.white} /></Pressable>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
