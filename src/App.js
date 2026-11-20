@@ -173,7 +173,7 @@ export default function App() {
     <main className="app-shell">
       <div className="desktop-note">
         <div className="brand-symbol"><span /><span /></div>
-        <div className="desktop-brand">FitHive</div>
+        <div className="desktop-brand">Roava</div>
         <p>Outside is better<br /><strong>together.</strong></p>
       </div>
       <div className="phone">

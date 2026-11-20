@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { CLUB_SKILL_LEVEL_OPTIONS, normalizeClubSkillLevels, type ClubSkillLevel } from '../src/clubSkillLevels'
 
 interface ClubRow {
   id: string
@@ -8,6 +9,7 @@ interface ClubRow {
   description: string
   activity: string
   location: string
+  skill_levels: ClubSkillLevel[]
 }
 
 interface MembershipRequest {
@@ -25,6 +27,7 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
   const [description, setDescription] = useState('')
   const [activity, setActivity] = useState('')
   const [location, setLocation] = useState('')
+  const [skillLevels, setSkillLevels] = useState<ClubSkillLevel[]>([])
   const [updateText, setUpdateText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -32,9 +35,9 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
 
   const refresh = useCallback(async () => {
     const { data: ownClubs, error: clubsError } = await client.from('clubs')
-      .select('id,name,description,activity,location').eq('owner_id', userId).order('created_at', { ascending: false })
+      .select('id,name,description,activity,location,skill_levels').eq('owner_id', userId).order('created_at', { ascending: false })
     if (clubsError) throw clubsError
-    const clubRows = (ownClubs ?? []) as ClubRow[]
+    const clubRows = (ownClubs ?? []).map((club: any) => ({ ...club, skill_levels: normalizeClubSkillLevels(club.skill_levels) })) as ClubRow[]
     setClubs(clubRows)
     setSelectedClubId((current) => clubRows.some((club) => club.id === current) ? current : clubRows[0]?.id ?? '')
     if (clubRows.length) {
@@ -61,6 +64,10 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
       setError('Enter a club name with at least two characters.')
       return
     }
+    if (!skillLevels.length) {
+      setError('Choose at least one skill level for your club.')
+      return
+    }
     setBusy(true)
     try {
       const { error: insertError } = await client.from('clubs').insert({
@@ -69,12 +76,14 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
         description: description.trim(),
         activity: activity.trim(),
         location: location.trim(),
+        skill_levels: skillLevels,
       })
       if (insertError) throw insertError
       setClubName('')
       setDescription('')
       setActivity('')
       setLocation('')
+      setSkillLevels([])
       setMessage('Club page created.')
       await refresh()
     } catch (caught) {
@@ -94,6 +103,7 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
         description: club.description.trim(),
         activity: club.activity.trim(),
         location: club.location.trim(),
+        skill_levels: club.skill_levels,
         updated_at: new Date().toISOString(),
       }).eq('id', club.id)
       if (updateError) throw updateError
@@ -144,7 +154,7 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
     }
   }
 
-  const updateClubField = (id: string, field: keyof Omit<ClubRow, 'id'>, value: string) => {
+  const updateClubField = <K extends keyof Omit<ClubRow, 'id'>>(id: string, field: K, value: ClubRow[K]) => {
     setClubs((current) => current.map((club) => club.id === id ? { ...club, [field]: value } : club))
   }
 
@@ -157,6 +167,9 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
         <TextInput value={description} onChangeText={setDescription} placeholder="About this club" multiline style={[styles.input, styles.multiline]} />
         <TextInput value={activity} onChangeText={setActivity} placeholder="Main activity (e.g. Hiking)" style={styles.input} />
         <TextInput value={location} onChangeText={setLocation} placeholder="City or area" style={styles.input} />
+        <Text style={styles.skillHeading}>Skill levels</Text>
+        <Text style={styles.copy}>Choose every experience level your club welcomes.</Text>
+        <View style={styles.skillOptions}>{CLUB_SKILL_LEVEL_OPTIONS.map((option) => { const selected = skillLevels.includes(option.value); return <Pressable key={option.value} onPress={() => setSkillLevels((current) => selected ? current.filter((level) => level !== option.value) : [...current, option.value])} style={[styles.skillOption, selected && styles.skillOptionSelected]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}><Text style={[styles.skillOptionLabel, selected && styles.skillOptionLabelSelected]}>{option.label}</Text><Text style={[styles.skillOptionDescription, selected && styles.skillOptionDescriptionSelected]}>{option.description}</Text></Pressable>})}</View>
         <Pressable onPress={() => { void createClub() }} disabled={busy} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Saving…' : 'Create club'}</Text></Pressable>
       </View>
       {clubs.map((club) => (
@@ -166,6 +179,9 @@ export function OwnerTools({ client, userId }: { client: SupabaseClient; userId:
           <TextInput value={club.description} onChangeText={(value) => updateClubField(club.id, 'description', value)} placeholder="About this club" multiline style={[styles.input, styles.multiline]} />
           <TextInput value={club.activity} onChangeText={(value) => updateClubField(club.id, 'activity', value)} placeholder="Main activity" style={styles.input} />
           <TextInput value={club.location} onChangeText={(value) => updateClubField(club.id, 'location', value)} placeholder="City or area" style={styles.input} />
+          <Text style={styles.skillHeading}>Skill levels</Text>
+          <Text style={styles.copy}>Choose every experience level your club welcomes.</Text>
+          <View style={styles.skillOptions}>{CLUB_SKILL_LEVEL_OPTIONS.map((option) => { const selected = club.skill_levels.includes(option.value); return <Pressable key={option.value} onPress={() => updateClubField(club.id, 'skill_levels', selected ? club.skill_levels.filter((level) => level !== option.value) : [...club.skill_levels, option.value])} style={[styles.skillOption, selected && styles.skillOptionSelected]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}><Text style={[styles.skillOptionLabel, selected && styles.skillOptionLabelSelected]}>{option.label}</Text><Text style={[styles.skillOptionDescription, selected && styles.skillOptionDescriptionSelected]}>{option.description}</Text></Pressable>})}</View>
           <Pressable onPress={() => { void saveClub(club) }} disabled={busy} style={styles.secondaryButton}><Text style={styles.buttonText}>{busy ? 'Saving…' : 'Save changes'}</Text></Pressable>
         </View>
       ))}
@@ -222,4 +238,12 @@ const styles = StyleSheet.create({
   rejectText: { color: '#a32020', fontSize: 10, fontWeight: '700' },
   error: { color: '#a32020', fontSize: 11, lineHeight: 16 },
   message: { color: '#325a18', fontSize: 11, lineHeight: 16 },
+  skillHeading: { color: '#151712', fontSize: 11, fontWeight: '800', marginTop: 12, marginBottom: 3 },
+  skillOptions: { gap: 7, marginTop: 7 },
+  skillOption: { padding: 10, borderRadius: 13, borderWidth: 1, borderColor: '#dedfd7', backgroundColor: '#f7f8f3' },
+  skillOptionSelected: { borderColor: '#FF7900', backgroundColor: '#FFF0E6' },
+  skillOptionLabel: { color: '#151712', fontSize: 11, fontWeight: '800' },
+  skillOptionLabelSelected: { color: '#C2410C' },
+  skillOptionDescription: { color: '#73776d', fontSize: 10, lineHeight: 14, marginTop: 3 },
+  skillOptionDescriptionSelected: { color: '#8A421F' },
 })

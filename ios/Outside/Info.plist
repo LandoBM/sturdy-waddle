@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>FitHive</string>
+    <string>Roava</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -55,13 +55,13 @@
       <string>_expo._tcp</string>
     </array>
     <key>NSCameraUsageDescription</key>
-    <string>FitHive uses your camera when you choose to take a profile photo or attach a photo to a post.</string>
+    <string>Roava uses your camera when you choose to take a profile photo or attach a photo to a post.</string>
     <key>NSHealthShareUsageDescription</key>
-    <string>FitHive imports completed workouts and related metrics that you choose to share from Apple Health.</string>
+    <string>Roava imports completed workouts and related metrics that you choose to share from Apple Health.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>FitHive uses your location during an activity, including when the screen is locked, so your route and distance keep recording.</string>
+    <string>Roava uses your location during an activity, including when the screen is locked, so your route and distance keep recording.</string>
     <key>NSLocationAlwaysUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your location</string>
     <key>NSLocationTemporaryUsageDescriptionDictionary</key>
@@ -70,11 +70,11 @@
       <string>Allow $(PRODUCT_NAME) to access your precise location</string>
     </dict>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>FitHive uses your location while you record a hike or run.</string>
+    <string>Roava uses your location while you record a hike or run.</string>
     <key>NSMotionUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to detect your current motion activity</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow FitHive to choose photos for your profile and posts.</string>
+    <string>Allow Roava to choose photos for your profile and posts.</string>
     <key>RCTMetroPort</key>
     <string>$(RCT_METRO_PORT)</string>
     <key>RCTNewArchEnabled</key>

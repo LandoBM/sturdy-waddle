@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Asset, requestPermissionsAsync } from 'expo-media-library'
 import { File } from 'expo-file-system'
 import { useRef, useState } from 'react'
-import { Alert, Animated, Image, PanResponder, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Alert, Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { type RecordedActivity } from './activity'
 import { calculatePaceSecondsPerMile, formatActivityDistance, formatActivityDuration, formatPace } from './activityMetrics'
 import { resolveActivityRoute } from './demoActivityRoutes'
@@ -95,35 +95,35 @@ export function ActivityStoryEditor({ activity, dark, onClose, onPostToFeed }: {
   }
 
   const captureStory = async () => {
-    if (!captureTarget.current) throw new Error('The activity story is not ready yet.')
+    if (!captureTarget.current) throw new Error('The activity graphic is not ready yet.')
     const { captureRef } = require('react-native-view-shot') as { captureRef: (target: any, options: Record<string, unknown>) => Promise<string> }
-    return captureRef(captureTarget.current, { format: 'png', quality: 1, pixelRatio: 3, fileName: `fithive-activity-${Date.now()}`, backgroundColor: transparentExport ? 'transparent' : undefined, result: 'tmpfile' })
+    return captureRef(captureTarget.current, { format: 'png', quality: 1, pixelRatio: 3, fileName: `roava-activity-${Date.now()}`, backgroundColor: transparentExport ? 'transparent' : undefined, result: 'tmpfile' })
   }
 
   const saveCapturedPng = async (uri: string) => {
-    const file = new File(uri)
+    const file = new File(uri) as File & { exists: boolean }
     if (!file.exists || file.extension.toLowerCase() !== '.png') {
       throw new Error('The PNG export could not be created. Please try again.')
     }
     const permission = await requestPermissionsAsync(true, ['photo'])
     if (!permission.granted) {
-      throw new Error('Photo access is needed to save the PNG. Please allow FitHive to add photos and try again.')
+      throw new Error('Photo access is needed to save the PNG. Please allow Roava to add photos and try again.')
     }
     await Asset.create(uri)
   }
 
-  const saveStory = async () => {
+  const saveGraphic = async () => {
     try {
       await saveCapturedPng(await captureStory())
-      Alert.alert('Saved to Photos', 'Your FitHive activity story is ready to share.')
+      Alert.alert('Saved to Photos', 'Your Roava activity graphic is ready to share.')
     } catch (error) {
-      Alert.alert('Could not save story', error instanceof Error ? error.message : 'Please try again.')
+      Alert.alert('Could not save graphic', error instanceof Error ? error.message : 'Please try again.')
     }
   }
 
   const downloadPng = async () => {
     if (template === 'photo') {
-      await saveStory()
+      await saveGraphic()
       return
     }
     try {
@@ -150,20 +150,11 @@ export function ActivityStoryEditor({ activity, dark, onClose, onPostToFeed }: {
     }
   }
 
-  const shareStory = async () => {
-    try {
-      const uri = await captureStory()
-      await Share.share({ title: `${activity.kind} on FitHive`, message: `${activity.kind} · ${formatActivityDuration(activity.elapsedSeconds)}`, url: uri })
-    } catch (error) {
-      Alert.alert('Could not share story', error instanceof Error ? error.message : 'Please try again.')
-    }
-  }
-
   return (
     <Animated.View style={[styles.editor, { backgroundColor: dark ? '#090A0C' : '#F5F6F2', transform: [{ translateY: dismissY }] }]}> 
       <View {...headerPanResponder.panHandlers} style={styles.editorHeader}>
         <View style={styles.dragHandle} />
-        <View style={styles.editorHeaderRow}><Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close activity story editor"><Text style={styles.closeText}>×</Text></Pressable><Text style={styles.editorTitle}>Share activity</Text><View style={styles.headerSpacer} /></View>
+        <View style={styles.editorHeaderRow}><Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close activity editor"><Text style={styles.closeText}>×</Text></Pressable><Text style={styles.editorTitle}>Activity graphic</Text><View style={styles.headerSpacer} /></View>
       </View>
       <ScrollView contentContainerStyle={styles.editorContent} showsVerticalScrollIndicator={false}>
         <View ref={captureTarget} collapsable={false} style={[styles.story, { width: cardWidth, height: cardHeight, backgroundColor: transparentExport ? 'transparent' : '#111419' }]}> 
@@ -172,7 +163,7 @@ export function ActivityStoryEditor({ activity, dark, onClose, onPostToFeed }: {
           {template === 'route' && hasValidRoute ? <View style={[styles.routeCanvas, { width: routeWidth, height: routeHeight }]}><ActivityRoutePreview points={displayRoutePoints} width={routeWidth} height={routeHeight} strokeWidth={6} /></View> : null}
           {template === 'route' && hasValidRoute ? <>
             <View style={styles.storyTop}><Text style={[styles.storySport, { color: textColor }, displayFont]}>{activity.kind.toUpperCase()}</Text>{isDemoRoute ? <Text style={styles.demoRouteLabel}>DEMO ROUTE · {resolvedRoute.label ?? 'PREVIEW'}</Text> : null}<View style={styles.storyMetricsRow}><StoryMetric label="TIME" value={formatActivityDuration(activity.elapsedSeconds)} />{activity.distanceMeters > 0 ? <StoryMetric label="DISTANCE" value={`${formatActivityDistance(activity.distanceMeters)} mi`} /> : null}{pace ? <StoryMetric label="PACE" value={pace} /> : null}{gain > 0 ? <StoryMetric label="ELEVATION" value={`${Math.round(gain)} m`} /> : null}</View></View>
-            <View style={styles.storyBottom}><Text style={styles.storyBrand}>FitHive<Text style={styles.storyBrandAccent}>.</Text></Text><Text style={styles.storyDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</Text></View>
+            <View style={styles.storyBottom}><Text style={styles.storyBrand}>Roava<Text style={styles.storyBrandAccent}>.</Text></Text><Text style={styles.storyDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</Text></View>
           </> : <>
           <View style={styles.storyNoRouteStats}>
             <Text style={[styles.storySport, { color: textColor }, displayFont]}>{activity.kind.toUpperCase()}</Text>
@@ -181,7 +172,7 @@ export function ActivityStoryEditor({ activity, dark, onClose, onPostToFeed }: {
             {!hasValidRoute ? <Text style={styles.noRouteMessage}>No GPS route recorded</Text> : null}
           </View>
           <View style={styles.storyNoRouteBottom}>
-            <Text style={styles.storyBrand}>FitHive<Text style={styles.storyBrandAccent}>.</Text></Text>
+            <Text style={styles.storyBrand}>Roava<Text style={styles.storyBrandAccent}>.</Text></Text>
             <Text style={styles.storyDate}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
           </View>
           </>}
@@ -191,7 +182,7 @@ export function ActivityStoryEditor({ activity, dark, onClose, onPostToFeed }: {
         <View style={styles.toolSection}><Text style={styles.toolLabel}>TEMPLATE</Text><View style={styles.toolRow}>{hasValidRoute ? <Pressable onPress={() => setTemplate('route')} style={[styles.toolButton, template === 'route' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Route + stats</Text></Pressable> : null}<Pressable onPress={() => setTemplate('stats')} style={[styles.toolButton, template === 'stats' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Stats only</Text></Pressable><Pressable onPress={photoUri ? () => setTemplate('photo') : choosePhoto} style={[styles.toolButton, template === 'photo' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>{photoUri ? 'Photo + stats' : 'Add photo'}</Text></Pressable></View></View>
         <View style={styles.toolSection}><Text style={styles.toolLabel}>TEXT</Text><View style={styles.toolRow}><Pressable onPress={() => setFontStyle('bold')} style={[styles.toolButton, fontStyle === 'bold' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Bold</Text></Pressable><Pressable onPress={() => setFontStyle('clean')} style={[styles.toolButton, fontStyle === 'clean' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Clean</Text></Pressable><Pressable onPress={() => setFontStyle('mono')} style={[styles.toolButton, fontStyle === 'mono' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Mono</Text></Pressable></View><View style={styles.toolRow}><Pressable onPress={() => setTextColor('#FFFFFF')} style={[styles.colorButton, { backgroundColor: '#FFFFFF' }, textColor === '#FFFFFF' && styles.colorButtonSelected]} accessibilityLabel="Use white story text" /><Pressable onPress={() => setTextColor('#FF7900')} style={[styles.colorButton, { backgroundColor: '#FF7900' }, textColor === '#FF7900' && styles.colorButtonSelected]} accessibilityLabel="Use orange story text" /><Pressable onPress={() => setTextColor('#A1A1AA')} style={[styles.colorButton, { backgroundColor: '#A1A1AA' }, textColor === '#A1A1AA' && styles.colorButtonSelected]} accessibilityLabel="Use gray story text" /><Pressable onPress={() => setTextPosition('top')} style={[styles.toolButton, textPosition === 'top' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Top</Text></Pressable><Pressable onPress={() => setTextPosition('center')} style={[styles.toolButton, textPosition === 'center' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Center</Text></Pressable><Pressable onPress={() => setTextPosition('bottom')} style={[styles.toolButton, textPosition === 'bottom' && styles.toolButtonSelected]}><Text style={styles.toolButtonText}>Bottom</Text></Pressable></View></View>
         <TextInput value={caption} onChangeText={setCaption} placeholder="Add a caption" placeholderTextColor="#71717A" style={styles.captionInput} maxLength={100} />
-        <View style={styles.actionRow}><Pressable onPress={() => { void downloadPng() }} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>{template === 'photo' ? 'Download PNG' : 'Download transparent PNG'}</Text></Pressable><Pressable onPress={() => { void shareStory() }} style={styles.primaryAction}><Text style={styles.primaryActionText}>Share story</Text></Pressable></View>
+        <View style={styles.actionRow}><Pressable onPress={() => { void downloadPng() }} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>{template === 'photo' ? 'Download PNG' : 'Download transparent PNG'}</Text></Pressable></View>
         {onPostToFeed ? <Pressable onPress={() => { void openPostComposer() }} disabled={posting} style={[styles.feedAction, posting && styles.disabledAction]}><Text style={styles.primaryActionText}>{posting ? 'Preparing post…' : 'Post to Feed'}</Text></Pressable> : null}
       </ScrollView>
     </Animated.View>

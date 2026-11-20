@@ -1,9 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import * as Location from 'expo-location'
 import * as TaskManager from 'expo-task-manager'
 import { activityTracksRoute, type ActivityKind } from './activityCatalog'
 import { calculateDistanceMeters, COMPLETION_POINTS } from './activityMetrics'
 import { activityHasRecordedRoute, chooseDemoActivityRouteId, getDemoActivityRoute, stableDemoActivityRouteId } from './demoActivityRoutes'
+import { mergeActivityHistory } from './activityHistory'
+
+export { activityCompletionTimestamp, activityLocalDateKey, groupRecentActivityDays, mergeActivityHistory } from './activityHistory'
 
 export {
   COMPLETION_POINTS,
@@ -93,6 +97,41 @@ async function saveActivityStore(store: ActivityStore, userId = activityUserId) 
   } else if (await AsyncStorage.getItem(ACTIVE_ACTIVITY_USER_KEY) === userId) {
     await AsyncStorage.removeItem(ACTIVE_ACTIVITY_USER_KEY)
   }
+}
+
+type SyncedActivityRow = { activity_id: string; activity: RecordedActivity }
+
+/**
+ * Merge local completed activities with the authenticated user's server copy.
+ * Local records win on ID collisions, and an empty/failed server response never
+ * clears local history. The migration's RLS policy limits rows to this user.
+ */
+export async function syncActivityStore(client: SupabaseClient, userId: string, localStore: ActivityStore): Promise<ActivityStore> {
+  const { data, error } = await client
+    .from('user_activity_history')
+    .select('activity_id, activity')
+    .eq('user_id', userId)
+
+  if (error) {
+    // Keep local history usable when the forward migration has not been applied yet.
+    if (error.code === 'PGRST205' || error.code === '42P01') return localStore
+    throw error
+  }
+
+  const remoteHistory = ((data ?? []) as SyncedActivityRow[])
+    .map((row) => row.activity)
+    .filter((activity): activity is RecordedActivity => !!activity && typeof activity.id === 'string' && activity.status === 'completed')
+  const mergedHistory = mergeActivityHistory(localStore.history, remoteHistory)
+  const nextStore: ActivityStore = { ...localStore, history: mergedHistory }
+
+  if (localStore.history.length) {
+    const rows = localStore.history.map((activity) => ({ user_id: userId, activity_id: activity.id, activity }))
+    const { error: uploadError } = await client.from('user_activity_history').upsert(rows, { onConflict: 'user_id,activity_id' })
+    if (uploadError && uploadError.code !== 'PGRST205' && uploadError.code !== '42P01') throw uploadError
+  }
+
+  if (mergedHistory.length !== localStore.history.length) await saveActivityStore(nextStore, userId)
+  return nextStore
 }
 
 function appendLocation(activity: RecordedActivity, location: Location.LocationObject) {
@@ -190,7 +229,7 @@ export async function beginActivity(kind: ActivityKind) {
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
         foregroundService: {
-          notificationTitle: 'FitHive is recording your activity',
+          notificationTitle: 'Roava is recording your activity',
           notificationBody: 'Location is used to measure your route, distance, and duration.',
           killServiceOnDestroy: false,
         },
@@ -244,7 +283,7 @@ export async function resumeActivity() {
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
         foregroundService: {
-          notificationTitle: 'FitHive is recording your activity',
+          notificationTitle: 'Roava is recording your activity',
           notificationBody: 'Location is used to measure your route, distance, and duration.',
           killServiceOnDestroy: false,
         },

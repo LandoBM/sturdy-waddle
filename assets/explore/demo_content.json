@@ -1,0 +1,126 @@
+{
+  "events": [
+    {
+      "id": "demo-event-01",
+      "title": "Tempo Night at the Reservoir",
+      "category": "running",
+      "location": "Hollywood Reservoir, Los Angeles, CA",
+      "image": "events/01_tempo_night_reservoir.jpg",
+      "demo": true
+    },
+    {
+      "id": "demo-event-02",
+      "title": "Sunset Flow in the Park",
+      "category": "yoga",
+      "location": "Echo Park Lake, Los Angeles, CA",
+      "image": "events/02_sunset_flow_park.jpg",
+      "demo": true
+    },
+    {
+      "id": "demo-event-03",
+      "title": "Golden Hour Ridge Walk",
+      "category": "hiking",
+      "location": "Griffith Park, Los Angeles, CA",
+      "image": "events/03_golden_hour_ridge_walk.jpg",
+      "demo": true
+    },
+    {
+      "id": "demo-event-04",
+      "title": "Weekend Cycling Social",
+      "category": "cycling",
+      "location": "Los Angeles, CA",
+      "image": "events/04_weekend_cycling_social.jpg",
+      "demo": true
+    },
+    {
+      "id": "demo-event-05",
+      "title": "Joshua Tree Bouldering Weekend",
+      "category": "climbing",
+      "location": "Joshua Tree, CA",
+      "image": "events/05_joshua_tree_bouldering.jpg",
+      "demo": true
+    },
+    {
+      "id": "demo-event-06",
+      "title": "Beach Cycling Meetup",
+      "category": "cycling",
+      "location": "Santa Monica, CA",
+      "image": "events/06_beach_cycling_meetup.jpg",
+      "demo": true
+    }
+  ],
+  "moments": [
+    {
+      "id": "demo-moment-01",
+      "image": "moments/01_hiking_friends.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-02",
+      "image": "moments/02_trail_runner.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-03",
+      "image": "moments/03_post_run_selfie.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-04",
+      "image": "moments/04_beach_volleyball.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-05",
+      "image": "moments/05_la_skyline.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-06",
+      "image": "moments/06_park_yoga.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-07",
+      "image": "moments/07_road_cycling.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-08",
+      "image": "moments/08_group_trail_run.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-09",
+      "image": "moments/09_sunset_view.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-10",
+      "image": "moments/10_cycling_friends.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-11",
+      "image": "moments/11_running_crew.jpg",
+      "mediaType": "image",
+      "demo": true
+    },
+    {
+      "id": "demo-moment-12",
+      "image": "moments/12_yoga_community.jpg",
+      "mediaType": "image",
+      "demo": true
+    }
+  ]
+}

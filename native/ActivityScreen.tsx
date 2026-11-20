@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Asset, requestPermissionsAsync } from 'expo-media-library'
 import { File } from 'expo-file-system'
-import { useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useMemo, useRef, useState, type Ref } from 'react'
 import { useColorScheme } from 'nativewind'
 import Svg, { Polyline } from 'react-native-svg'
 import { Alert, Animated, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { type ActivityKind, type ActivityStore, type RecordedActivity } from './activity'
+import { groupRecentActivityDays } from './activityHistory'
 import { activityCatalog, activityTracksRoute, sportAssetRegistry } from './activityCatalog'
 import { theme } from '../src/theme'
 import { RouteMap } from './RouteMap'
@@ -21,6 +22,7 @@ import {
   formatActivityDuration,
   formatPace,
 } from './activityMetrics'
+import type { SharedBottomSheetPresenter } from './bottomSheetMigration'
 
 const ink = theme.colors.ink
 const muted = theme.colors.muted
@@ -125,7 +127,7 @@ function RouteExportCard({ activity, captureTarget, dark }: { activity: Recorded
   return (
     <View ref={captureTarget} collapsable={false} style={[styles.exportCard, { width: cardWidth, backgroundColor: dark ? '#171C19' : '#FFFFFF' }]}> 
       <View style={styles.exportHeader}>
-        <Text style={[styles.exportLogo, { color: foreground }]}>FitHive</Text>
+        <Text style={[styles.exportLogo, { color: foreground }]}>Roava</Text>
         <Text style={[styles.exportActivity, { color: secondary }]}>{activity.kind.toUpperCase()}</Text>
       </View>
           <ActivityRoutePreview points={resolvedRoute.points} width={cardWidth} height={routeHeight} strokeWidth={5} />
@@ -183,7 +185,8 @@ export function ActivityScreen({
   onPostToFeed,
   ringMetrics,
   darkMode,
-  bottomTabs,
+  presentBottomSheet,
+  dismissBottomSheet,
 }: {
   store: ActivityStore
   elapsedSeconds: number
@@ -194,7 +197,8 @@ export function ActivityScreen({
   onPostToFeed?: (imageUri: string, caption: string) => void | Promise<void>
   ringMetrics: FitnessRingValues
   darkMode?: boolean
-  bottomTabs?: ReactNode
+  presentBottomSheet?: SharedBottomSheetPresenter
+  dismissBottomSheet?: () => void
 }) {
   const [kind, setKind] = useState<ActivityKind>('Hiking')
   const [activitySearch, setActivitySearch] = useState('')
@@ -208,6 +212,10 @@ export function ActivityScreen({
   const { height: screenHeight } = useWindowDimensions()
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
+  const closePicker = () => {
+    setPickerVisible(false)
+    dismissBottomSheet?.()
+  }
   storyEditorVisibleRef.current = storyEditorVisible
   const background = dark ? theme.colors.dark : theme.colors.paper
   const surface = dark ? theme.colors.darkSurface : '#FFFFFF'
@@ -240,10 +248,43 @@ export function ActivityScreen({
       .slice(0, 6),
     [activitySearch],
   )
+  const recentActivityGroups = useMemo(() => groupRecentActivityDays(store.history), [store.history])
+  const recentActivityIds = useMemo(() => new Set(recentActivityGroups.flatMap((group) => group.activities.map((activity) => activity.id))), [recentActivityGroups])
+  const olderActivities = useMemo(() => store.history.filter((activity) => !recentActivityIds.has(activity.id)), [recentActivityIds, store.history])
+  const renderHistoryCard = (activity: RecordedActivity) => (
+    <Pressable key={activity.id} onPress={() => { setStoryEditorVisible(false); setSelectedActivity(activity) }} style={[styles.historyCard, { backgroundColor: surface, borderColor }]} accessibilityRole="button" accessibilityLabel={`Open ${activity.kind} activity details`}>
+      <View style={styles.historyIcon}><Ionicons name={activityTracksRoute(activity.kind) ? 'navigate-outline' : 'fitness-outline'} size={18} color="#FFFFFF" /></View>
+      <View style={styles.historyMain}>
+        <Text style={[styles.historyTitle, { color: foreground }]}>{activity.kind}</Text>
+        <Text style={[styles.historyDate, { color: secondary }]}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(activity.endedAt ?? activity.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text>
+        <Text style={[styles.historyStats, { color: foreground }]}>{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
+      </View>
+      <Pressable onPress={() => { setStoryEditorVisible(true); setSelectedActivity(activity) }} style={styles.historyShareButton} accessibilityLabel={`Share ${activity.kind} activity`}><Ionicons name="share-outline" size={18} color={accent} /></Pressable>
+      <RouteThumbnail activity={activity} />
+    </Pressable>
+  )
 
   const startSelectedActivity = async () => {
     const started = await onStart(kind)
-    if (started !== false) setPickerVisible(false)
+    if (started !== false) closePicker()
+  }
+
+  const openActivityPicker = () => {
+    if (!presentBottomSheet) {
+      setPickerVisible(true)
+      return
+    }
+    presentBottomSheet({
+      id: 'activity-selector',
+      title: 'Start an activity',
+      onDismiss: () => setPickerVisible(false),
+      content: <View style={[styles.pickerSheet, { backgroundColor: surface, borderColor }]}>
+        <TextInput value={activitySearch} onChangeText={setActivitySearch} placeholder="Search activities" placeholderTextColor={secondary} style={[styles.searchInput, { color: foreground, backgroundColor: dark ? '#0F1511' : '#FBFDF9', borderColor }]} accessibilityLabel="Search activity types" />
+        <SportVisual kind={kind} dark={dark} compact />
+        <View style={styles.kindList}>{visibleActivities.map((item) => { const selected = kind === item.name; return <Pressable key={item.name} onPress={() => setKind(item.name)} style={[styles.kindButton, { backgroundColor: selected ? '#FF7900' : (dark ? '#0F1511' : '#F5F6F2'), borderColor: selected ? '#FF7900' : borderColor }]} accessibilityRole="radio" accessibilityState={{ selected }}><Text style={[styles.kindText, { color: selected ? '#FFFFFF' : foreground }]}>{item.name}</Text>{selected && <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />}</Pressable> })}</View>
+        <Pressable onPress={() => void startSelectedActivity()} style={styles.startButton} accessibilityLabel={`Start ${kind.toLowerCase()} activity`}><Ionicons name={activityTracksRoute(kind) ? 'navigate' : 'time-outline'} size={18} color="#FFFFFF" /><Text style={styles.startButtonText}>Start {kind.toLowerCase()}</Text></Pressable>
+      </View>,
+    })
   }
 
   const dismissActivityDetails = () => {
@@ -281,8 +322,8 @@ export function ActivityScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: background }}>
-    <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={{ backgroundColor: background }} contentContainerClassName="px-[18px] pb-32 pt-5">
-      <View style={styles.trackHeader}><Text style={[styles.trackTitle, { color: foreground }]}>Track</Text><Pressable onPress={() => setPickerVisible(true)} disabled={!!active} style={[styles.addWorkoutButton, { backgroundColor: accent, opacity: active ? 0.45 : 1 }]} accessibilityRole="button" accessibilityLabel="Add workout" accessibilityState={{ disabled: !!active }}><Ionicons name="add" size={17} color="#FFFFFF" /><Text style={styles.addWorkoutText}>Add workout</Text></Pressable></View>
+    <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={{ backgroundColor: background, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}>
+      <View style={styles.trackHeader}><Text style={[styles.trackTitle, { color: foreground }]}>Track</Text><Pressable onPress={openActivityPicker} disabled={!!active} style={[styles.addWorkoutButton, { backgroundColor: accent, opacity: active ? 0.45 : 1 }]} accessibilityRole="button" accessibilityLabel="Add workout" accessibilityState={{ disabled: !!active }}><Ionicons name="add" size={17} color="#FFFFFF" /><Text style={styles.addWorkoutText}>Add workout</Text></Pressable></View>
       <View style={[styles.rewardBanner, { backgroundColor: dark ? '#2A1D14' : '#FFF4EB', borderColor: dark ? '#6C4325' : '#FFD1B3' }]}>
         <View style={[styles.rewardIcon, { backgroundColor: '#FF7900' }]}><Ionicons name="trophy" size={21} color="#FFFFFF" /></View>
         <View className="flex-1">
@@ -291,7 +332,7 @@ export function ActivityScreen({
         </View>
       </View>
 
-      <View style={styles.majorSection}>
+      <View style={styles.todayActivitySection}>
       <View style={[styles.dashboardCard, { backgroundColor: surface, borderColor }]}> 
         <View style={styles.dashboardHeader}><View style={styles.dashboardHeaderCopy}><Text style={[styles.cardTitle, { color: foreground }]}>{active ? active.kind : 'Today’s activity'}</Text><Text style={[styles.cardDescription, { color: secondary }]}>{active ? (active.status === 'recording' ? 'Recording your movement' : 'Activity paused') : new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</Text></View><View style={[styles.todayPill, { backgroundColor: active ? '#FF5A1F22' : (dark ? '#303238' : '#F5F6F2') }]}><View style={[styles.liveDot, { backgroundColor: active ? accent : secondary }]} /><Text style={[styles.todayPillText, { color: active ? accent : secondary }]}>{active ? active.status.toUpperCase() : 'READY'}</Text></View></View>
         <SportVisual kind={active?.kind ?? kind} dark={dark} compact={!active} />
@@ -307,10 +348,10 @@ export function ActivityScreen({
       </View>
       </View>
 
-      {!active && <View style={styles.majorSection}><ActivityTrendChart data={store.history.length ? trendData : []} dark={dark} /></View>}
+      {!active && <View style={styles.activityProgressSection}><ActivityTrendChart data={store.history.length ? trendData : []} dark={dark} /></View>}
 
       {active ? (
-        <View style={styles.majorSection}>
+        <View style={styles.activeActivitySection}>
         <View style={[styles.activeCard, { backgroundColor: surface, borderColor }]}> 
           <View style={styles.controls}>
             {active.status === 'recording' ? (
@@ -335,25 +376,23 @@ export function ActivityScreen({
 
       <View style={styles.historySection}>
       <View style={styles.historyHeader}>
-        <Text style={[styles.sectionTitle, { color: foreground }]}>Activity history</Text>
+        <Text style={[styles.sectionTitle, { color: foreground }]}>Recent activity</Text>
         <Text style={[styles.historyCount, { color: secondary }]}>{store.history.length}</Text>
       </View>
       {store.history.length === 0 ? (
         <View style={[styles.emptyHistory, { backgroundColor: surface, borderColor }]}><Text style={[styles.emptyHistoryText, { color: secondary }]}>Your completed activities will show up here.</Text></View>
-      ) : store.history.map((activity) => (
-        <Pressable key={activity.id} onPress={() => { setStoryEditorVisible(false); setSelectedActivity(activity) }} style={[styles.historyCard, { backgroundColor: surface, borderColor }]} accessibilityRole="button" accessibilityLabel={`Open ${activity.kind} activity details`}>
-          <View style={styles.historyIcon}><Ionicons name={activityTracksRoute(activity.kind) ? 'navigate-outline' : 'fitness-outline'} size={18} color="#FFFFFF" /></View>
-          <View style={styles.historyMain}>
-            <Text style={[styles.historyTitle, { color: foreground }]}>{activity.kind}</Text>
-            <Text style={[styles.historyDate, { color: secondary }]}>{new Date(activity.endedAt ?? activity.startedAt).toLocaleDateString()}</Text>
-            <Text style={[styles.historyStats, { color: foreground }]}>{activityTracksRoute(activity.kind) ? `${formatActivityDistance(activity.distanceMeters)} mi · ` : ''}{formatActivityDuration(activity.elapsedSeconds)} · +{activity.earnedPoints ?? COMPLETION_POINTS} pts</Text>
-          </View>
-          <Pressable onPress={() => { setStoryEditorVisible(true); setSelectedActivity(activity) }} style={styles.historyShareButton} accessibilityLabel={`Share ${activity.kind} activity`}><Ionicons name="share-outline" size={18} color={accent} /></Pressable>
-          <RouteThumbnail activity={activity} />
-        </Pressable>
-      ))}
+      ) : <>
+        {recentActivityGroups.map((group) => <View key={group.key} style={styles.activityDayGroup}>
+          <Text style={[styles.activityDayLabel, { color: secondary }]}>{group.label}</Text>
+          {group.activities.length ? group.activities.map(renderHistoryCard) : <Text style={[styles.activityDayEmpty, { color: secondary }]}>No completed activities</Text>}
+        </View>)}
+        {!!olderActivities.length && <View style={styles.olderActivityGroup}>
+          <View style={styles.olderActivityHeader}><Text style={[styles.activityDayLabel, { color: secondary }]}>Activity history</Text><Text style={[styles.historyCount, { color: secondary }]}>{olderActivities.length}</Text></View>
+          {olderActivities.map(renderHistoryCard)}
+        </View>}
+      </>}
       </View>
-      <Modal visible={pickerVisible} transparent animationType="slide" onRequestClose={() => setPickerVisible(false)}>
+      {!presentBottomSheet && <Modal visible={pickerVisible} transparent animationType="slide" onRequestClose={closePicker}>
         <View style={styles.pickerBackdrop}>
           <View style={[styles.pickerSheet, { backgroundColor: surface, borderColor }]}>
             <View style={styles.pickerHeader}>
@@ -382,36 +421,37 @@ export function ActivityScreen({
             <Text style={[styles.permissionNote, { color: secondary }]}>{activityTracksRoute(kind) ? 'Background location permission keeps your route recording while the screen is locked.' : 'This activity records time only and does not request location access.'}</Text>
           </View>
         </View>
-      </Modal>
+      </Modal>}
 
       <Modal visible={!!selectedActivity} animationType="slide" onRequestClose={() => { setStoryEditorVisible(false); setSelectedActivity(null) }}>
         <View style={[styles.detailScreen, { backgroundColor: background }]}>
-          <Animated.View {...detailPanResponder.panHandlers} style={[styles.detailGestureSurface, { transform: [{ translateY: detailDismissY }] }]}>
+          <Animated.View style={[styles.detailGestureSurface, { transform: [{ translateY: detailDismissY }] }]}> 
             {!storyEditorVisible && <View style={styles.detailHeader}>
-              <Pressable onPress={() => { setStoryEditorVisible(false); setSelectedActivity(null) }} style={[styles.closeButton, { backgroundColor: dark ? '#202823' : '#E7EAE4' }]} accessibilityLabel="Close activity details"><Ionicons name="chevron-back" size={22} color={foreground} /></Pressable>
-              <Text style={[styles.detailTitle, { color: foreground }]}>Activity details</Text>
-              <View style={styles.closeButton} />
+              <View {...detailPanResponder.panHandlers} style={styles.detailDragArea} accessibilityLabel="Swipe down to close activity details">
+                <View style={[styles.detailDragHandle, { backgroundColor: dark ? '#59635B' : '#B8C0B8' }]} />
+                <View style={styles.detailHeaderRow}>
+                  <Pressable onPress={() => { setStoryEditorVisible(false); setSelectedActivity(null) }} style={[styles.closeButton, { backgroundColor: dark ? '#202823' : '#E7EAE4' }]} accessibilityLabel="Close activity details"><Ionicons name="chevron-back" size={22} color={foreground} /></Pressable>
+                  <Text style={[styles.detailTitle, { color: foreground }]}>Activity details</Text>
+                  <View style={styles.closeButton} />
+                </View>
+              </View>
             </View>}
-            {selectedActivity && storyEditorVisible ? <ActivityStoryEditor activity={selectedActivity} dark={dark} onClose={() => setStoryEditorVisible(false)} onPostToFeed={onPostToFeed} /> : selectedActivity ? (
+            {selectedActivity && storyEditorVisible ? <ActivityStoryEditor activity={selectedActivity} dark={dark} onClose={() => { setStoryEditorVisible(false); setSelectedActivity(null) }} onPostToFeed={onPostToFeed} /> : selectedActivity ? (
               <ScrollView onScroll={(event) => { detailScrollOffset.current = event.nativeEvent.contentOffset.y }} scrollEventThrottle={16} contentContainerStyle={styles.detailContent}>
                 <RouteExportCard activity={selectedActivity} captureTarget={routeExportRef} dark={dark} />
-                <Pressable style={styles.shareStoryButton} onPress={() => setStoryEditorVisible(true)}>
-                  <Ionicons name="sparkles-outline" size={19} color="#FFFFFF" />
-                  <Text style={styles.saveRouteText}>Create share story</Text>
-                </Pressable>
                 <Pressable style={styles.saveRouteButton} onPress={async () => {
                   if (!routeExportRef.current) return
                   try {
                     const permission = await requestPermissionsAsync(true, ['photo'])
                     if (!permission.granted) {
-                      Alert.alert('Photo access needed', 'Allow FitHive to save your route card to your photo gallery.')
+                      Alert.alert('Photo access needed', 'Allow Roava to save your route card to your photo gallery.')
                       return
                     }
                     const uri = await captureRef(routeExportRef.current, { format: 'png', quality: 1, result: 'tmpfile' })
-                    const file = new File(uri)
+                    const file = new File(uri) as File & { exists: boolean }
                     if (!file.exists || file.extension.toLowerCase() !== '.png') throw new Error('The route card PNG could not be created.')
                     await Asset.create(uri)
-                    Alert.alert('Saved to Photos', 'Your FitHive route card is now in your photo gallery.')
+                    Alert.alert('Saved to Photos', 'Your Roava route card is now in your photo gallery.')
                   } catch (error) {
                     Alert.alert('Could not save route', error instanceof Error ? error.message : 'Please try again.')
                   }
@@ -421,7 +461,6 @@ export function ActivityScreen({
                 </Pressable>
               </ScrollView>
             ) : null}
-            {!storyEditorVisible && bottomTabs}
           </Animated.View>
         </View>
       </Modal>
@@ -478,8 +517,15 @@ const styles = StyleSheet.create({
   kindSelected: { backgroundColor: '#FF7900', borderColor: '#FF7900' },
   kindText: { color: ink, fontSize: 10, fontWeight: '700' },
   selectedKindText: { fontWeight: '800' },
-  majorSection: { marginBottom: majorSectionGap },
+  todayActivitySection: { marginBottom: majorSectionGap },
+  activityProgressSection: { marginBottom: majorSectionGap },
+  activeActivitySection: { marginBottom: majorSectionGap },
   historySection: { marginTop: 0 },
+  activityDayGroup: { marginBottom: 16 },
+  activityDayLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 8 },
+  activityDayEmpty: { fontSize: 11, marginBottom: 4 },
+  olderActivityGroup: { marginTop: 4 },
+  olderActivityHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   dashboardCard: { backgroundColor: white, borderColor: line, borderWidth: 1, borderRadius: 26, padding: cardPadding, shadowColor: '#171C19', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 15, elevation: 3 },
   dashboardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   dashboardHeaderCopy: { flex: 1, minWidth: 0, paddingRight: theme.spacing.sm },
@@ -502,7 +548,7 @@ const styles = StyleSheet.create({
   dashboardBody: { flexDirection: 'row', alignItems: 'center', marginTop: contentGap },
   heroMetricRow: { flexDirection: 'row', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1 },
   heroMetric: { minHeight: 62, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14 },
-  dashboardMetrics: { flex: 1, gap: 9, paddingLeft: 4 },
+  dashboardMetrics: { flex: 1, minWidth: 0, gap: 9, paddingLeft: 4 },
   floatingStartButton: { position: 'absolute', right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF7900', shadowColor: '#FF7900', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   pickerBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.58)' },
   pickerSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28 },
@@ -528,6 +574,9 @@ const styles = StyleSheet.create({
   detailScreen: { flex: 1, backgroundColor: '#F5F6F2' },
   detailGestureSurface: { flex: 1 },
   detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 15, paddingBottom: 10 },
+  detailDragArea: { flex: 1, alignItems: 'stretch' },
+  detailDragHandle: { alignSelf: 'center', width: 38, height: 5, borderRadius: 3, marginBottom: 9 },
+  detailHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   closeButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E7EAE4' },
   detailTitle: { color: ink, fontSize: 16, fontWeight: '800' },
   detailContent: { alignItems: 'center', paddingHorizontal: 18, paddingBottom: 32 },
@@ -542,7 +591,6 @@ const styles = StyleSheet.create({
   exportNoRoute: { color: muted, fontSize: 10, marginTop: 12, paddingHorizontal: 12 },
   exportDemoLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1, marginTop: 7, paddingHorizontal: 12 },
   saveRouteButton: { minHeight: 52, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 26, backgroundColor: accent, marginTop: 18 },
-  shareStoryButton: { minHeight: 52, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 26, backgroundColor: '#24262B', marginTop: 18 },
   saveRouteText: { color: white, fontSize: 13, fontWeight: '800' },
   detailHint: { color: muted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 12, paddingHorizontal: 20 },
 })

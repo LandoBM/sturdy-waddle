@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
-import { memo, useCallback, useMemo, useState, type ComponentProps } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { useColorScheme } from 'nativewind'
 import {
   Alert,
@@ -13,7 +13,11 @@ import {
   Text,
   View,
 } from 'react-native'
-import type { Post } from '../src/posts'
+import type { Comment, Post, PostTag } from '../src/posts'
+import { MentionText } from './MentionText'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { MentionInput } from './MentionInput'
+import { BottomSheet } from './BottomSheet'
 
 type IconName = ComponentProps<typeof Ionicons>['name']
 
@@ -36,7 +40,22 @@ type FeedScreenProps = {
   onDelete: (postId: string) => void
   followedHandles: string[]
   onToggleFollow: (handle: string) => void
+  onOpenProfile?: (profileId: string) => void
+  onOpenClub?: (clubId: string) => void
   darkMode?: boolean
+  client?: SupabaseClient | null
+  commentsPostId?: string | null
+  targetPostId?: string | null
+  highlightedCommentId?: string | null
+  commentText?: string
+  commentTags?: PostTag[]
+  commentFocusRequest?: number
+  replyTo?: Comment | null
+  onCommentTextChange?: (value: string) => void
+  onCommentMentionSelected?: (tag: PostTag) => void
+  onSubmitComment?: () => void
+  onReply?: (comment: Comment) => void
+  onCancelReply?: () => void
 }
 
 const palette = {
@@ -78,33 +97,57 @@ type PostCardProps = {
   onComments: () => void
   onDelete?: () => void
   onToggleFollow: () => void
+  onOpenProfile?: (profileId: string) => void
+  onOpenClub?: (clubId: string) => void
+  client?: SupabaseClient | null
+  commentsExpanded?: boolean
+  highlightedCommentId?: string | null
+  commentText?: string
+  commentTags?: PostTag[]
+  commentFocusRequest?: number
+  replyTo?: Comment | null
+  onCommentTextChange?: (value: string) => void
+  onCommentMentionSelected?: (tag: PostTag) => void
+  onSubmitComment?: () => void
+  onReply?: (comment: Comment) => void
+  onCancelReply?: () => void
 }
 
 export const PostCard = memo(function PostCard({
-  post, photoUri, dark, following, onLike, onSave, onComments, onDelete, onToggleFollow,
+  post, photoUri, dark, following, onLike, onSave, onComments, onDelete, onToggleFollow, onOpenProfile, onOpenClub,
+  client, commentsExpanded = false, highlightedCommentId = null, commentText = '', commentTags = [], commentFocusRequest = 0, replyTo, onCommentTextChange, onCommentMentionSelected, onSubmitComment, onReply, onCancelReply,
 }: PostCardProps) {
   const [imageFailed, setImageFailed] = useState(false)
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
+  const [postSheet, setPostSheet] = useState<'menu' | 'delete' | null>(null)
   const foreground = dark ? '#F8FAF7' : '#171C19'
   const muted = dark ? palette.mutedDark : palette.mutedLight
 
-  const openOptions = () => {
-    const options = [
-      { text: 'Share post', onPress: () => { void Share.share({ message: [post.text, post.image].filter(Boolean).join('\n') || `Post by @${post.handle}` }).catch(() => Alert.alert('Unable to share', 'Please try again.')) } },
-      { text: post.saved ? 'Remove from saved' : 'Save post', onPress: onSave },
-      { text: 'Cancel', style: 'cancel' },
-    ] as Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }>
-    if (post.mine && onDelete) options.splice(2, 0, {
-      text: 'Delete post',
-      style: 'destructive',
-      onPress: () => Alert.alert('Delete post?', 'Are you sure you want to permanently delete this post? This action cannot be undone.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-      ]),
-    })
-    Alert.alert('Post options', `@${post.handle}`, options)
+  const renderComment = (comment: Comment, nested = false): ReactNode => {
+    const replies = post.comments.filter((candidate) => candidate.parentId === comment.id)
+    const repliesExpanded = expandedReplies.has(comment.id)
+    return <View key={comment.id} style={[styles.inlineComment, nested && styles.inlineReply, highlightedCommentId === comment.id && styles.highlightedComment]}>
+      <Avatar name={comment.author} size={nested ? 28 : 32} photoUri={comment.mine ? photoUri : null} />
+      <View style={styles.commentCopy}>
+        <View style={[styles.commentBubble, { backgroundColor: dark ? '#242A25' : '#F5F6F2', borderColor: dark ? palette.darkBorder : palette.lightBorder }]}>
+          <Text style={[styles.commentAuthor, { color: foreground }]}>@{comment.handle}</Text>
+          <MentionText text={comment.text} tags={comment.tags} color={foreground} onOpenProfile={onOpenProfile} onOpenClub={onOpenClub} style={styles.commentBody} />
+        </View>
+        <View style={styles.commentMetaRow}><Text style={[styles.commentTime, { color: muted }]}>{comment.time}</Text><Pressable onPress={() => onReply?.(comment)} accessibilityRole="button" accessibilityLabel={`Reply to @${comment.handle}`}><Text style={[styles.replyAction, { color: palette.orange }]}>Reply</Text></Pressable></View>
+        {!!replies.length && <Pressable onPress={() => setExpandedReplies((current) => { const next = new Set(current); if (next.has(comment.id)) next.delete(comment.id); else next.add(comment.id); return next })} accessibilityRole="button" accessibilityLabel={`${repliesExpanded ? 'Hide' : 'Show'} replies to @${comment.handle}`}><Text style={[styles.repliesToggle, { color: muted }]}>{repliesExpanded ? 'Hide replies' : `View ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`}</Text></Pressable>}
+        {repliesExpanded && replies.map((reply) => renderComment(reply, true))}
+      </View>
+    </View>
   }
 
+  const openOptions = () => {
+    setPostSheet('menu')
+  }
+
+  const runSheetAction = (action: () => void) => { setPostSheet(null); action() }
+
   return (
+    <>
     <View style={[styles.card, { backgroundColor: dark ? palette.darkSurface : palette.lightSurface, borderColor: dark ? palette.darkBorder : palette.lightBorder }]}> 
       <View style={styles.authorRow}>
         <Avatar name={post.handle} size={44} photoUri={post.displayAsClub ? post.clubAvatarUrl : post.mine ? photoUri : post.avatarUrl} />
@@ -127,7 +170,12 @@ export const PostCard = memo(function PostCard({
         </Pressable>
       </View>
 
-      {!!post.text && <Text style={[styles.postText, { color: foreground }]}>{post.text}</Text>}
+      {!!post.text && <MentionText text={post.text} tags={post.tags} color={foreground} onOpenProfile={onOpenProfile} onOpenClub={onOpenClub} style={styles.postText} />}
+
+      {!!post.tags?.length && <View style={styles.tagsRow}>
+        <Icon name="pricetag-outline" color={palette.orange} size={14} />
+        {post.tags.map((tag) => <Pressable key={tag.id} onPress={() => tag.kind === 'profile' && tag.profileId ? onOpenProfile?.(tag.profileId) : tag.clubId ? onOpenClub?.(tag.clubId) : undefined} style={[styles.tagChip, { backgroundColor: dark ? '#242A25' : '#FFF4EE' }]} accessibilityRole="button" accessibilityLabel={`Open tagged ${tag.kind === 'profile' ? 'profile' : 'club'} ${tag.label}`}><Text style={[styles.tagChipText, { color: palette.orange }]} numberOfLines={1}>{tag.kind === 'profile' ? `@${tag.handle || tag.label}` : tag.label}</Text></Pressable>)}
+      </View>}
 
       {!!post.image && !imageFailed && (
         <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" onError={() => setImageFailed(true)} />
@@ -145,6 +193,11 @@ export const PostCard = memo(function PostCard({
           <Text style={[styles.locationText, { color: muted }]} numberOfLines={1}>{post.location}</Text>
         </View>
       )}
+
+      {!!post.sharedClub && <Pressable onPress={() => onOpenClub?.(post.sharedClub!.id)} style={[styles.sharedClubCard, { backgroundColor: dark ? '#202823' : '#FFF4EE', borderColor: dark ? palette.darkBorder : '#FFD1B3' }]} accessibilityRole="button" accessibilityLabel={`View club ${post.sharedClub.name}`}>
+        {post.sharedClub.coverImageUrl ? <Image source={{ uri: post.sharedClub.coverImageUrl }} style={styles.sharedClubImage} resizeMode="cover" /> : <View style={[styles.sharedClubFallback, { backgroundColor: dark ? '#2B211B' : '#FFE2CC' }]}><Text style={{ color: palette.orange, fontSize: 22, fontWeight: '900' }}>R</Text><Text style={{ color: palette.orange, fontSize: 9, fontWeight: '900', letterSpacing: 1 }}>ROAVA CLUB</Text></View>}
+        <View style={styles.sharedClubCopy}><Text style={[styles.sharedClubName, { color: foreground }]} numberOfLines={1}>{post.sharedClub.name}</Text><Text style={[styles.sharedClubMeta, { color: muted }]} numberOfLines={1}>{[post.sharedClub.activity, post.sharedClub.location].filter(Boolean).join(' · ') || 'Community club'}</Text><Text style={[styles.sharedClubLevels, { color: palette.orange }]} numberOfLines={1}>{post.sharedClub.skillLevels.length ? post.sharedClub.skillLevels.map((level) => level.charAt(0).toUpperCase() + level.slice(1)).join(' · ') : 'Skill levels not specified'}</Text><Text style={[styles.sharedClubAction, { color: palette.orange }]}>View Club</Text></View>
+      </Pressable>}
 
       <View style={[styles.actions, { borderTopColor: dark ? palette.darkBorder : palette.lightBorder }]}> 
         <Pressable onPress={onLike} style={styles.actionButton} accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike post' : 'Like post'}>
@@ -169,7 +222,32 @@ export const PostCard = memo(function PostCard({
           </Text>
         </Pressable>
       )}
+      {commentsExpanded && client && onCommentTextChange && onSubmitComment && (
+        <View style={[styles.inlineComments, { borderTopColor: dark ? palette.darkBorder : palette.lightBorder }]}>
+          <Text style={[styles.inlineCommentsTitle, { color: foreground }]}>Comments</Text>
+          {!post.comments.filter((comment) => !comment.parentId).length && <Text style={[styles.noComments, { color: muted }]}>Be the first to comment.</Text>}
+          {post.comments.filter((comment) => !comment.parentId).map((comment) => renderComment(comment))}
+          {!!replyTo && <View style={[styles.replyingTo, { backgroundColor: dark ? '#242A25' : '#FFF4EE' }]}><Text style={[styles.replyingText, { color: foreground }]}>Replying to @{replyTo.handle}</Text><Pressable onPress={onCancelReply} accessibilityLabel="Cancel reply"><Text style={{ color: palette.orange, fontWeight: '800' }}>Cancel</Text></Pressable></View>}
+          <View style={styles.inlineCommentInputRow}>
+            <MentionInput client={client} value={commentText} onChangeText={(value) => onCommentTextChange(value.slice(0, 280))} onMentionSelected={(tag) => onCommentMentionSelected?.(tag)} dark={dark} focusRequest={commentFocusRequest} placeholder="Add a comment…" placeholderTextColor={muted} multiline maxLength={280} style={[styles.inlineCommentInput, { backgroundColor: dark ? '#171C19' : '#FFFFFF', borderColor: dark ? palette.darkBorder : palette.lightBorder }]} />
+            <Pressable onPress={onSubmitComment} disabled={!commentText.trim()} style={[styles.inlineSendButton, { backgroundColor: palette.orange, opacity: commentText.trim() ? 1 : 0.45 }]} accessibilityLabel="Post comment"><Icon name="arrow-up" color="#FFFFFF" size={18} /></Pressable>
+          </View>
+        </View>
+      )}
     </View>
+    <BottomSheet visible={postSheet !== null} onClose={() => setPostSheet(null)} backgroundColor={dark ? palette.darkSurface : palette.lightSurface} borderColor={dark ? palette.darkBorder : palette.lightBorder} accessibilityLabel={postSheet === 'delete' ? 'Delete post confirmation' : 'Post options'}>
+      <View style={styles.actionSheetContent}>
+        <Text style={[styles.actionSheetTitle, { color: foreground }]}>{postSheet === 'delete' ? 'Delete post?' : 'Post options'}</Text>
+        <Text style={[styles.actionSheetSubtitle, { color: muted }]}>{postSheet === 'delete' ? 'Are you sure you want to permanently delete this post? This action cannot be undone.' : `@${post.handle}`}</Text>
+        {postSheet === 'menu' ? <>
+          <Pressable style={[styles.actionSheetButton, { borderColor: dark ? palette.darkBorder : palette.lightBorder }]} onPress={() => runSheetAction(() => { void Share.share({ message: [post.text, post.image].filter(Boolean).join('\n') || `Post by @${post.handle}` }).catch(() => Alert.alert('Unable to share', 'Please try again.')) })}><Icon name="share-outline" color={foreground} /><Text style={[styles.actionSheetButtonText, { color: foreground }]}>Share post</Text></Pressable>
+          <Pressable style={[styles.actionSheetButton, { borderColor: dark ? palette.darkBorder : palette.lightBorder }]} onPress={() => runSheetAction(onSave)}><Icon name="bookmark-outline" color={foreground} /><Text style={[styles.actionSheetButtonText, { color: foreground }]}>{post.saved ? 'Remove from saved' : 'Save post'}</Text></Pressable>
+          {post.mine && onDelete && <Pressable style={[styles.actionSheetButton, { borderColor: dark ? palette.darkBorder : palette.lightBorder }]} onPress={() => setPostSheet('delete')}><Icon name="trash-outline" color="#B42318" /><Text style={[styles.actionSheetButtonText, { color: '#B42318' }]}>Delete post</Text></Pressable>}
+        </> : <Pressable style={[styles.actionSheetButton, { borderColor: '#B42318' }]} onPress={() => runSheetAction(onDelete!)}><Icon name="trash-outline" color="#B42318" /><Text style={[styles.actionSheetButtonText, { color: '#B42318' }]}>Delete post</Text></Pressable>}
+        <Pressable style={styles.actionSheetCancel} onPress={() => setPostSheet(null)}><Text style={[styles.actionSheetButtonText, { color: muted }]}>Cancel</Text></Pressable>
+      </View>
+    </BottomSheet>
+    </>
   )
 })
 
@@ -177,6 +255,8 @@ export function FeedScreen({
   posts, profileAvatarUrl, refreshing, loading = false, error = '', onRefresh, onOpenNotifications,
   hasUnreadNotifications, unreadNotificationCount = 0, onCompose, onLike, onSave, onComments, onDelete,
   followedHandles, onToggleFollow, feedMode, onFeedModeChange, darkMode,
+  onOpenProfile, onOpenClub,
+  client, commentsPostId, targetPostId, highlightedCommentId, commentText, commentTags, commentFocusRequest, replyTo, onCommentTextChange, onCommentMentionSelected, onSubmitComment, onReply, onCancelReply,
 }: FeedScreenProps) {
   const { colorScheme } = useColorScheme()
   const dark = darkMode ?? colorScheme === 'dark'
@@ -184,13 +264,22 @@ export function FeedScreen({
   const muted = dark ? palette.mutedDark : palette.mutedLight
   const background = dark ? palette.darkBackground : palette.lightBackground
   const followedSet = useMemo(() => new Set(followedHandles.map((handle) => handle.replace(/^@/, '').toLowerCase())), [followedHandles])
+  const listRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (!targetPostId) return
+    const index = posts.findIndex((post) => post.id === targetPostId)
+    if (index < 0) return
+    const timer = setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.2 }), 120)
+    return () => clearTimeout(timer)
+  }, [posts, targetPostId])
 
   const header = useMemo(() => (
     <View style={styles.headerArea}>
       <View style={styles.headerRow}>
         <View style={styles.headerSide} />
         <View style={styles.brandRow}>
-          <Text style={[styles.wordmark, { color: foreground }]}>FitHive</Text>
+          <Text style={[styles.wordmark, { color: foreground }]}>Roava</Text>
           <Text style={styles.brandDot}>.</Text>
         </View>
         <View style={[styles.headerSide, styles.headerActions]}>
@@ -222,12 +311,27 @@ export function FeedScreen({
       onComments={() => onComments(item.id)}
       onDelete={() => onDelete(item.id)}
       onToggleFollow={() => onToggleFollow(item.handle)}
+      onOpenProfile={onOpenProfile}
+      onOpenClub={onOpenClub}
+      client={client}
+      commentsExpanded={commentsPostId === item.id}
+      highlightedCommentId={commentsPostId === item.id ? highlightedCommentId : null}
+      commentText={commentText}
+      commentTags={commentTags}
+      commentFocusRequest={commentFocusRequest}
+      replyTo={commentsPostId === item.id ? replyTo : null}
+      onCommentTextChange={onCommentTextChange}
+      onCommentMentionSelected={onCommentMentionSelected}
+      onSubmitComment={onSubmitComment}
+      onReply={onReply}
+      onCancelReply={onCancelReply}
     />
-  ), [profileAvatarUrl, dark, followedSet, onLike, onSave, onComments, onDelete, onToggleFollow])
+  ), [profileAvatarUrl, dark, followedSet, onLike, onSave, onComments, onDelete, onToggleFollow, onOpenProfile, onOpenClub, client, commentsPostId, highlightedCommentId, commentText, commentTags, commentFocusRequest, replyTo, onCommentTextChange, onCommentMentionSelected, onSubmitComment, onReply, onCancelReply])
 
   return (
     <View style={[styles.screen, { backgroundColor: background }]}>
       <FlatList
+      ref={listRef}
       style={{ flex: 1, backgroundColor: background }}
       data={posts}
       keyExtractor={(post) => post.id}
@@ -261,10 +365,11 @@ export function FeedScreen({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 32, flexGrow: 1 },
+  listContent: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 120, flexGrow: 1 },
   headerArea: { marginBottom: 22 },
   headerRow: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  headerSide: { width: 104 },
+  // Keep the header flexible on narrow iPhones; the action buttons size themselves.
+  headerSide: { width: 46 },
   headerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   headerIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   brandRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', flex: 1 },
@@ -289,6 +394,9 @@ const styles = StyleSheet.create({
   followText: { fontSize: 11, fontWeight: '800' },
   iconButton: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
   postText: { fontSize: 14, lineHeight: 21, marginBottom: 12 },
+  tagsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2, marginBottom: 2 },
+  tagChip: { maxWidth: 150, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 },
+  tagChipText: { fontSize: 10, fontWeight: '800' },
   postImage: { width: '100%', aspectRatio: 1.45, borderRadius: 16, backgroundColor: '#343B34' },
   imageFallback: { width: '100%', aspectRatio: 1.45, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 8 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 11 },
@@ -298,6 +406,39 @@ const styles = StyleSheet.create({
   actionCount: { fontSize: 12, fontWeight: '700' },
   commentPreview: { marginTop: 4, paddingVertical: 5 },
   commentText: { fontSize: 11, lineHeight: 17 },
+  inlineComments: { borderTopWidth: 1, marginTop: 8, paddingTop: 12 },
+  inlineCommentsTitle: { fontSize: 13, fontWeight: '900', marginBottom: 10 },
+  noComments: { fontSize: 11, marginBottom: 10 },
+  inlineComment: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
+  highlightedComment: { borderRadius: 14, backgroundColor: '#FF79001A', padding: 5, marginHorizontal: -5 },
+  inlineReply: { marginTop: 8, marginLeft: 12 },
+  commentCopy: { flex: 1, minWidth: 0 },
+  commentBubble: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 },
+  commentAuthor: { fontSize: 11, fontWeight: '900', marginBottom: 3 },
+  commentBody: { fontSize: 12, lineHeight: 17 },
+  commentMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, paddingHorizontal: 3 },
+  commentTime: { fontSize: 9 },
+  replyAction: { fontSize: 10, fontWeight: '900' },
+  repliesToggle: { fontSize: 10, fontWeight: '800', marginTop: 7, paddingHorizontal: 3 },
+  replyingTo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 7 },
+  replyingText: { fontSize: 10, fontWeight: '800' },
+  inlineCommentInputRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 4 },
+  inlineCommentInput: { flex: 1, minWidth: 0, minHeight: 42, maxHeight: 100, borderWidth: 1, borderRadius: 19, paddingHorizontal: 13, paddingVertical: 10, fontSize: 12 },
+  inlineSendButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  actionSheetContent: { paddingHorizontal: 18, paddingBottom: 18, gap: 9 },
+  actionSheetTitle: { fontSize: 18, fontWeight: '900', marginTop: 4 },
+  actionSheetSubtitle: { fontSize: 12, lineHeight: 18, marginBottom: 5 },
+  actionSheetButton: { minHeight: 50, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  actionSheetButtonText: { fontSize: 13, fontWeight: '800' },
+  actionSheetCancel: { minHeight: 46, alignItems: 'center', justifyContent: 'center' },
+  sharedClubCard: { flexDirection: 'row', minHeight: 112, borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginTop: 12 },
+  sharedClubImage: { width: 104, height: 112 },
+  sharedClubFallback: { width: 104, height: 112, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  sharedClubCopy: { flex: 1, padding: 12, justifyContent: 'center' },
+  sharedClubName: { fontSize: 14, fontWeight: '900' },
+  sharedClubMeta: { fontSize: 10, marginTop: 4 },
+  sharedClubLevels: { fontSize: 10, fontWeight: '800', marginTop: 6 },
+  sharedClubAction: { fontSize: 10, fontWeight: '900', marginTop: 8 },
   emptyCard: { padding: 25, borderWidth: 1, borderRadius: 24, alignItems: 'center', marginTop: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '800', textAlign: 'center', marginTop: 14 },
   emptyBody: { fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 9 },

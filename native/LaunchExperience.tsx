@@ -2,7 +2,7 @@ import { VideoView, useVideoPlayer } from 'expo-video'
 import { useEventListener } from 'expo'
 import { scheduleOnRN } from 'react-native-worklets'
 import { useCallback, useEffect, useRef, type ComponentProps } from 'react'
-import { Image, StyleSheet, View, useWindowDimensions } from 'react-native'
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import Animated, {
   Easing,
   Extrapolation,
@@ -69,7 +69,7 @@ export function LaunchExperience({ ready, onReady, onFinished }: LaunchExperienc
     if (__DEV__) console.log('[Launch] LaunchExperience mounted')
     onReadyRef.current()
     if (skierLaunchVideoSource === null) {
-      if (__DEV__) console.warn('[Launch] skier video asset is missing; using FitHive logo fallback')
+      if (__DEV__) console.warn('[Launch] skier video asset is missing; using Roava logo fallback')
     } else {
       if (__DEV__) console.log('[Launch] video source resolved')
       try {
@@ -121,7 +121,7 @@ export function LaunchExperience({ ready, onReady, onFinished }: LaunchExperienc
   const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(finished.value, [0, 1], [1, 0], Extrapolation.CLAMP) }))
 
   return (
-    <Animated.View style={[styles.container, contentStyle]} accessibilityLabel="FitHive starting">
+    <Animated.View style={[styles.container, contentStyle]} accessibilityLabel="Roava starting">
       {skierLaunchVideoSource !== null && <VideoView player={videoViewPlayer} style={styles.video} contentFit="cover" nativeControls={false} />}
       <Animated.View style={[styles.snowVeil, { width: width * 1.5, height: Math.max(180, height * 0.34) }, veilStyle]} />
       {flakes.map((flake) => (
@@ -131,7 +131,7 @@ export function LaunchExperience({ ready, onReady, onFinished }: LaunchExperienc
         />
       ))}
       <Animated.View style={[styles.logoWrap, logoStyle]}>
-        <Image source={require('../assets/fithive-wordmark-transparent.png')} resizeMode="contain" style={{ width: Math.min(width * 0.7, 290), height: 88 }} accessibilityLabel="FitHive" />
+        <Text style={styles.launchWordmark} accessibilityLabel="Roava">Roava<Text style={styles.launchAccent}>.</Text></Text>
       </Animated.View>
       <View style={styles.orangeLine} />
     </Animated.View>
@@ -142,6 +142,8 @@ const styles = StyleSheet.create({
   container: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: '#090A0C', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   video: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.82 },
   logoWrap: { alignItems: 'center', justifyContent: 'center' },
+  launchWordmark: { color: '#FFFFFF', fontFamily: 'Inter_700Bold', fontSize: 52, letterSpacing: -2 },
+  launchAccent: { color: '#FF7900' },
   snowVeil: { position: 'absolute', left: '-25%', top: '38%', borderRadius: 999, backgroundColor: '#F5F5F5', shadowColor: '#FFFFFF', shadowOpacity: 0.3, shadowRadius: 32, shadowOffset: { width: 0, height: 0 } },
   flake: { position: 'absolute', borderRadius: 99, backgroundColor: '#F5F5F5' },
   orangeLine: { position: 'absolute', bottom: '27%', width: 44, height: 4, borderRadius: 99, backgroundColor: '#FF5A1F' },

@@ -6,7 +6,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as ImagePicker from 'expo-image-picker'
 import { Blob as ExpoBlob } from 'expo-blob'
 import * as Location from 'expo-location'
+import { VideoView, useVideoPlayer } from 'expo-video'
 import * as Notifications from 'expo-notifications'
+import { BlurView } from 'expo-blur'
 import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
 import { useColorScheme } from 'nativewind'
@@ -21,6 +23,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,10 +33,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { areas, clubById, clubs, distanceBetweenCoordinates, media, type Category, type Club, type Coordinates } from '../src/data'
 import { theme } from '../src/theme'
-import { seedPosts, type Post } from '../src/posts'
+import { seedPosts, type Comment, type Post, type PostTag } from '../src/posts'
+import { normalizeClubSkillLevels } from '../src/clubSkillLevels'
+import type { SharedClubPreview } from '../src/sharedClub'
 import { driveMinutes, formatDuration, tripById, trips, type Trip } from '../src/trips'
 import { ActivityScreen } from './ActivityScreen'
 import { FeedScreen, PostCard } from './FeedScreen'
+import { demoExploreEvents, demoExploreMoments } from '../src/demoExplore'
 import { ClubsScreen } from './ClubsScreen'
 import { ExploreScreen } from './ExploreScreen'
 import { ClubDetailScreen } from './ClubDetailScreen'
@@ -46,6 +52,11 @@ import { AuthScreen } from './AuthScreen'
 import { LaunchExperience } from './LaunchExperience'
 import { OwnerAccessScreen } from './OwnerAccessScreen'
 import { OwnerTools } from './OwnerTools'
+import { PostTaggingSheet, type TagSelection } from './PostTaggingSheet'
+import { BottomSheet, BottomSheetScrollView } from './BottomSheet'
+import type { SharedBottomSheetConfig, SharedBottomSheetPresenter } from './bottomSheetMigration'
+import { MentionInput } from './MentionInput'
+import { resolveClubMedia } from './clubMedia'
 import { selectRandomSampleClubGroup, type SampleClub } from './sampleClubs'
 import { fetchNearbyPlaces, lookupPostalLocation, type NearbyPlace } from './nearbyPlaces'
 import {
@@ -55,6 +66,7 @@ import {
   pauseActivity,
   resumeActivity,
   setActivityUserId,
+  syncActivityStore,
   type ActivityKind,
   type ActivityStore,
   type RecordedActivity,
@@ -90,6 +102,7 @@ type AppNotification = {
   read_at: string | null
   actor_id?: string | null
   post_id?: string | null
+  comment_id?: string | null
   club_id?: string | null
   membership_id?: string | null
   actorProfile?: { display_name?: string | null; username?: string | null; avatar_url?: string | null } | null
@@ -140,6 +153,7 @@ interface ManagedClub {
   description: string
   activity: string
   location: string
+  skill_levels?: string[] | null
 }
 
 interface FlightStatus {
@@ -307,6 +321,15 @@ function tripDateKey(trip: Trip) {
   return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${dateParts[2].padStart(2, '0')}`
 }
 
+function MomentVideo({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (instance) => {
+    instance.loop = true
+    instance.play()
+  })
+  const VideoViewComponent = VideoView as any
+  return <VideoViewComponent player={player} nativeControls contentFit="contain" style={{ width: '100%', aspectRatio: 1, backgroundColor: '#17191D' }} />
+}
+
 export default function NativeApp() {
   const [fontsLoaded] = useFonts({
     Pacifico_400Regular,
@@ -366,7 +389,10 @@ export default function NativeApp() {
   const [search, setSearch] = useState('')
   const [joined, setJoined] = useState<string[]>(['club-0'])
   const [scheduleIds, setScheduleIds] = useState(['t1', 't3', 't4', 't6'])
-  const [reserved, setReserved] = useState(['t3', 't6'])
+  const [reserved, setReserved] = useState<string[]>([])
+  const [savedActivityIds, setSavedActivityIds] = useState<string[]>([])
+  const [momentsCount, setMomentsCount] = useState(0)
+  const [activityMutationId, setActivityMutationId] = useState<string | null>(null)
   const [posts, setPosts] = useState<Post[]>(seedPosts)
   const [selectedClub, setSelectedClub] = useState<Club | null>(null)
   const [sampleClubs, setSampleClubs] = useState<SampleClub[]>([])
@@ -385,15 +411,27 @@ export default function NativeApp() {
   const [clubsError, setClubsError] = useState('')
   const [clubsReloadKey, setClubsReloadKey] = useState(0)
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
+  const [selectedMoment, setSelectedMoment] = useState<Post | null>(null)
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
+  const [targetFeedPostId, setTargetFeedPostId] = useState<string | null>(null)
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null)
   const [composing, setComposing] = useState(false)
   const [draftText, setDraftText] = useState('')
   const [draftLocation, setDraftLocation] = useState('')
   const [draftImage, setDraftImage] = useState<string | undefined>()
   const [draftImageMimeType, setDraftImageMimeType] = useState('image/jpeg')
   const [draftClubId, setDraftClubId] = useState<string | null>(null)
+  const [draftSharedClub, setDraftSharedClub] = useState<SharedClubPreview | null>(null)
+  const [draftTags, setDraftTags] = useState<TagSelection[]>([])
+  const [draftMentionTags, setDraftMentionTags] = useState<TagSelection[]>([])
+  const [taggingVisible, setTaggingVisible] = useState(false)
+  const [sharedSheet, setSharedSheet] = useState<SharedBottomSheetConfig | null>(null)
   const [publishingPost, setPublishingPost] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const [commentMentionTags, setCommentMentionTags] = useState<PostTag[]>([])
+  const [commentReplyTo, setCommentReplyTo] = useState<Comment | null>(null)
+  const [commentFocusRequest, setCommentFocusRequest] = useState(0)
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [activityStore, setActivityStore] = useState<ActivityStore>({ active: null, history: [], points: 0 })
   const [clock, setClock] = useState(Date.now())
 
@@ -440,6 +478,10 @@ export default function NativeApp() {
   const themeText = isDark ? theme.colors.darkText : theme.colors.ink
   const themeMuted = isDark ? theme.colors.darkMuted : theme.colors.muted
   const themeBorder = isDark ? theme.colors.darkBorder : theme.colors.line
+  const presentSharedBottomSheet: SharedBottomSheetPresenter = (config) => {
+    setSharedSheet((current) => current?.id === config.id ? current : config)
+  }
+  const dismissSharedBottomSheet = () => setSharedSheet(null)
   const dark = isDark
   const foreground = themeText
   const settingsSurface = { backgroundColor: themeSurface, borderColor: themeBorder }
@@ -557,11 +599,11 @@ export default function NativeApp() {
       return
     }
     let active = true
-    const socialUsername = (profileUsername || session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'fithive')
+  const socialUsername = (profileUsername || session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'roava')
       .replace(/^@/, '')
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, '')
-      .slice(0, 20) || 'fithive'
+      .slice(0, 20) || 'roava'
     const loadSocialGraph = async () => {
       const [{ data: followingRows, error: followingError }, { count, error: followersError }] = await Promise.all([
         client.from('user_follows').select('following_username').eq('follower_id', session.user.id),
@@ -620,82 +662,136 @@ export default function NativeApp() {
     setFeedError('')
     let feedOperation = 'community_posts.select'
     const loadCommunityPosts = async () => {
-      const postSelection = 'id,author_id,body,image_url,location,club,club_id,created_at'
-      let rows: any[] = []
-      if (feedMode === 'following') {
-        feedOperation = 'feed.relationships.select'
-        const [{ data: followRows, error: followError }, { data: membershipRows, error: membershipError }] = await Promise.all([
-          client.from('user_follows').select('following_id,following_username').eq('follower_id', session.user.id),
-          client.from('club_memberships').select('club_id').eq('member_id', session.user.id).eq('status', 'active'),
-        ])
-        if (followError) throw followError
-        if (membershipError) throw membershipError
-        const usernames = (followRows ?? []).map((row) => row.following_username).filter(Boolean)
-        const { data: profilesForFollows, error: profilesError } = usernames.length
-          ? await client.from('profiles').select('id,username').in('username', usernames)
-          : { data: [], error: null }
-        if (profilesError) throw profilesError
-        const followedIds = Array.from(new Set([
-          ...(followRows ?? []).map((row) => row.following_id).filter(Boolean),
-          ...(profilesForFollows ?? []).map((profile) => profile.id).filter(Boolean),
-        ]))
-        const joinedClubIds = Array.from(new Set((membershipRows ?? []).map((row) => row.club_id).filter(Boolean)))
-        const candidateQueries = [
-          ...(followedIds.length ? [client.from('community_posts').select(postSelection).in('author_id', followedIds)] : []),
-          ...(joinedClubIds.length ? [client.from('community_posts').select(postSelection).in('club_id', joinedClubIds)] : []),
-          client.from('community_posts').select(postSelection).eq('author_id', session.user.id),
-        ]
-        const candidateResults = await Promise.all(candidateQueries)
-        const candidateById = new Map<string, any>()
-        for (const result of candidateResults) {
-          feedOperation = 'community_posts.candidate.select'
-          if (result.error) throw result.error
-          for (const row of result.data ?? []) candidateById.set(row.id, row)
+      const postSelection = 'id,author_id,body,image_url,location,club,club_id,shared_club_id,created_at'
+      const legacyPostSelection = 'id,author_id,body,image_url,location,club,club_id,created_at'
+      const loadRows = async (selection: string) => {
+        let rows: any[] = []
+        if (feedMode === 'following') {
+          feedOperation = 'feed.relationships.select'
+          const [{ data: followRows, error: followError }, { data: membershipRows, error: membershipError }] = await Promise.all([
+            client.from('user_follows').select('following_id,following_username').eq('follower_id', session.user.id),
+            client.from('club_memberships').select('club_id').eq('member_id', session.user.id).eq('status', 'active'),
+          ])
+          if (followError) throw followError
+          if (membershipError) throw membershipError
+          const usernames = (followRows ?? []).map((row) => row.following_username).filter(Boolean)
+          const { data: profilesForFollows, error: profilesError } = usernames.length
+            ? await client.from('profiles').select('id,username').in('username', usernames)
+            : { data: [], error: null }
+          if (profilesError) throw profilesError
+          const followedIds = Array.from(new Set([
+            ...(followRows ?? []).map((row) => row.following_id).filter(Boolean),
+            ...(profilesForFollows ?? []).map((profile) => profile.id).filter(Boolean),
+          ]))
+          const joinedClubIds = Array.from(new Set((membershipRows ?? []).map((row) => row.club_id).filter(Boolean)))
+          const candidateQueries: Array<PromiseLike<{ data: any[] | null; error: { code?: string; message?: string } | null }>> = [
+            ...(followedIds.length ? [client.from('community_posts').select(selection).in('author_id', followedIds)] : []),
+            ...(joinedClubIds.length ? [client.from('community_posts').select(selection).in('club_id', joinedClubIds)] : []),
+            client.from('community_posts').select(selection).eq('author_id', session.user.id),
+          ]
+          const candidateResults = await Promise.all(candidateQueries)
+          const candidateById = new Map<string, any>()
+          for (const result of candidateResults) {
+            feedOperation = 'community_posts.candidate.select'
+            if (result.error) throw result.error
+            for (const row of result.data ?? []) candidateById.set(row.id, row)
+          }
+          rows = Array.from(candidateById.values()).sort((left, right) => right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id)).slice(0, 50)
+        } else {
+          const { data, error } = await client.from('community_posts').select(selection).order('created_at', { ascending: false }).limit(50)
+          if (error) {
+            if (['PGRST205', '42P01'].includes(error.code ?? '')) return []
+            throw error
+          }
+          rows = data ?? []
         }
-        rows = Array.from(candidateById.values()).sort((left, right) => right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id)).slice(0, 50)
-      } else {
-        const { data, error } = await client.from('community_posts').select(postSelection).order('created_at', { ascending: false }).limit(50)
-        if (error) {
-          if (['PGRST205', '42P01'].includes(error.code ?? '')) return
-          throw error
-        }
-        rows = data ?? []
+        return rows
+      }
+
+      let rows: any[]
+      try {
+        rows = await loadRows(postSelection)
+      } catch (error) {
+        const code = (error as { code?: string } | null)?.code
+        const message = error instanceof Error ? error.message : String(error)
+        if (code !== '42703' && !message.includes('shared_club_id')) throw error
+        // Keep existing posts readable while the forward-only shared-club migration is pending remotely.
+        rows = await loadRows(legacyPostSelection)
       }
       if (!active) return
       const postIds = rows.map((row) => row.id)
       const authorIds = Array.from(new Set(rows.map((row) => row.author_id).filter(Boolean)))
       const clubIds = Array.from(new Set(rows.map((row) => row.club_id).filter(Boolean)))
+      const sharedClubIds = Array.from(new Set(rows.map((row) => row.shared_club_id).filter(Boolean)))
+      const tagResult = postIds.length ? await client.from('post_tags').select('id,post_id,tagged_profile_id,tagged_club_id,source').in('post_id', postIds) : { data: [], error: null }
+      const tagRows = tagResult.error && ['PGRST205', '42P01'].includes(tagResult.error.code ?? '') ? [] : (tagResult.data ?? [])
+      if (tagResult.error && tagRows.length === 0 && !['PGRST205', '42P01'].includes(tagResult.error.code ?? '')) throw tagResult.error
+      const taggedProfileIds = Array.from(new Set(tagRows.map((tag: any) => tag.tagged_profile_id).filter(Boolean)))
+      const taggedClubIds = Array.from(new Set(tagRows.map((tag: any) => tag.tagged_club_id).filter(Boolean)))
       feedOperation = 'feed.related_profiles.select'
       const [{ data: profileRows, error: profilesError }, { data: clubRows, error: clubsError }] = await Promise.all([
-        authorIds.length ? client.from('profiles').select('id,display_name,username,avatar_url').in('id', authorIds) : Promise.resolve({ data: [], error: null }),
-        clubIds.length ? client.from('clubs').select('id,name,owner_id,badge_url').in('id', clubIds) : Promise.resolve({ data: [], error: null }),
+        authorIds.length || taggedProfileIds.length ? client.from('profiles').select('id,display_name,username,avatar_url').in('id', Array.from(new Set([...authorIds, ...taggedProfileIds]))) : Promise.resolve({ data: [], error: null }),
+        clubIds.length || taggedClubIds.length || sharedClubIds.length ? client.from('clubs').select('id,name,owner_id,activity,location,skill_levels,image_url,cover_image_url,badge_url').in('id', Array.from(new Set([...clubIds, ...taggedClubIds, ...sharedClubIds]))) : Promise.resolve({ data: [], error: null }),
       ])
       if (profilesError) throw profilesError
       if (clubsError) throw clubsError
       const profilesById = Object.fromEntries((profileRows ?? []).map((profile) => [profile.id, profile]))
       const clubsById = Object.fromEntries((clubRows ?? []).map((club) => [club.id, club]))
+      const sharedClubMediaById = Object.fromEntries(await Promise.all(sharedClubIds.map(async (id) => [id, await resolveClubMedia(client, clubsById[id]?.cover_image_url || clubsById[id]?.image_url)] as const)))
+      const tagsByPost = new Map<string, PostTag[]>()
+      for (const tag of tagRows as any[]) {
+        const profile = tag.tagged_profile_id ? profilesById[tag.tagged_profile_id] : null
+        const club = tag.tagged_club_id ? clubsById[tag.tagged_club_id] : null
+        if (!profile && !club) continue
+        const resolved: PostTag = profile
+          ? { id: tag.id, kind: 'profile', profileId: profile.id, label: profile.display_name || profile.username || 'Roava member', handle: profile.username, avatarUrl: profile.avatar_url }
+          : { id: tag.id, kind: 'club', clubId: club.id, label: club.name, handle: club.name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'club', avatarUrl: club.badge_url }
+        tagsByPost.set(tag.post_id, [...(tagsByPost.get(tag.post_id) ?? []), resolved])
+      }
       feedOperation = 'feed.engagement.select'
-      const [likesResult, commentsResult] = postIds.length ? await Promise.all([
-        client.from('post_likes').select('post_id,user_id').in('post_id', postIds),
-        client.from('post_comments').select('id,post_id,author_id,body,created_at').in('post_id', postIds).order('created_at', { ascending: true }),
-      ]) : [{ data: [] }, { data: [] }]
+      const likesResult = postIds.length ? await client.from('post_likes').select('post_id,user_id').in('post_id', postIds) : { data: [], error: null }
+      let commentsResult: any = postIds.length ? await client.from('post_comments').select('id,post_id,author_id,body,created_at,parent_comment_id').in('post_id', postIds).order('created_at', { ascending: true }) : { data: [], error: null }
+      if (commentsResult.error && ['PGRST204', 'PGRST205', '42703'].includes(commentsResult.error.code ?? '')) {
+        commentsResult = postIds.length ? await client.from('post_comments').select('id,post_id,author_id,body,created_at').in('post_id', postIds).order('created_at', { ascending: true }) : { data: [], error: null }
+      }
       if (likesResult.error) throw likesResult.error
       if (commentsResult.error) throw commentsResult.error
       const likes = likesResult.data
       const comments = commentsResult.data
-      const commentRows = comments ?? []
+      const commentRows = (comments ?? []) as Array<{ id: string; post_id: string; author_id: string; body: string; created_at: string; parent_comment_id?: string | null }>
       const commentAuthorIds = Array.from(new Set(commentRows.map((comment) => comment.author_id).filter(Boolean)))
       const { data: commentProfiles, error: commentProfilesError } = commentAuthorIds.length
         ? await client.from('profiles').select('id,display_name,username,avatar_url').in('id', commentAuthorIds)
         : { data: [], error: null }
       if (commentProfilesError) throw commentProfilesError
       const commentProfilesById = Object.fromEntries((commentProfiles ?? []).map((profile) => [profile.id, profile]))
+      const commentIds = commentRows.map((comment) => comment.id)
+      const commentTagResult = commentIds.length ? await client.from('comment_tags').select('id,comment_id,tagged_profile_id,tagged_club_id').in('comment_id', commentIds) : { data: [], error: null }
+      const commentTagRows = commentTagResult.error ? [] : (commentTagResult.data ?? [])
+      const commentTaggedProfileIds = Array.from(new Set(commentTagRows.map((tag: any) => tag.tagged_profile_id).filter(Boolean)))
+      const commentTaggedClubIds = Array.from(new Set(commentTagRows.map((tag: any) => tag.tagged_club_id).filter(Boolean)))
+      const [{ data: commentTaggedProfiles }, { data: commentTaggedClubs }] = await Promise.all([
+        commentTaggedProfileIds.length ? client.from('profiles').select('id,display_name,username,avatar_url').in('id', commentTaggedProfileIds) : Promise.resolve({ data: [] }),
+        commentTaggedClubIds.length ? client.from('clubs').select('id,name,badge_url').in('id', commentTaggedClubIds) : Promise.resolve({ data: [] }),
+      ])
+      const commentTaggedProfilesById = Object.fromEntries((commentTaggedProfiles ?? []).map((profile: any) => [profile.id, profile]))
+      const commentTaggedClubsById = Object.fromEntries((commentTaggedClubs ?? []).map((club: any) => [club.id, club]))
+      const commentTagsById = new Map<string, PostTag[]>()
+      for (const tag of commentTagRows as any[]) {
+        const profile = tag.tagged_profile_id ? commentTaggedProfilesById[tag.tagged_profile_id] : null
+        const club = tag.tagged_club_id ? commentTaggedClubsById[tag.tagged_club_id] : null
+        if (!profile && !club) continue
+        const resolved: PostTag = profile
+          ? { id: tag.id, kind: 'profile', profileId: profile.id, label: profile.display_name || profile.username || 'Roava member', handle: profile.username, avatarUrl: profile.avatar_url }
+          : { id: tag.id, kind: 'club', clubId: club.id, label: club.name, handle: club.name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'club', avatarUrl: club.badge_url }
+        commentTagsById.set(tag.comment_id, [...(commentTagsById.get(tag.comment_id) ?? []), resolved])
+      }
       const likesByPost = new Map<string, Array<{ user_id: string }>>()
       for (const like of likes ?? []) likesByPost.set(like.post_id, [...(likesByPost.get(like.post_id) ?? []), like])
       const commentsByPost = new Map<string, Post['comments']>()
       for (const comment of commentRows) {
         const profile = commentProfilesById[comment.author_id]
-        const handle = profile?.username ?? 'fithive_member'
+        const handle = profile?.username ?? 'roava_member'
         commentsByPost.set(comment.post_id, [...(commentsByPost.get(comment.post_id) ?? []), {
           id: comment.id,
           author: profile?.display_name || handle,
@@ -705,12 +801,14 @@ export default function NativeApp() {
           time: new Date(comment.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
           likes: 0,
           liked: false,
+          parentId: 'parent_comment_id' in comment ? comment.parent_comment_id : null,
+          tags: commentTagsById.get(comment.id) ?? [],
         }])
       }
       const remotePosts: Post[] = rows.flatMap((row) => {
         const profile = profilesById[row.author_id]
         const club = row.club_id ? clubsById[row.club_id] : undefined
-        const handle = profile?.username ?? 'fithive_member'
+        const handle = profile?.username ?? 'roava_member'
         const postLikes = likesByPost.get(row.id) ?? []
         const displayAsClub = !!club && club.owner_id === row.author_id
         const clubUsername = club?.name ? club.name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'club' : undefined
@@ -729,11 +827,20 @@ export default function NativeApp() {
           location: row.location ?? undefined,
           club: club?.name ?? row.club ?? undefined,
           clubId: row.club_id ?? undefined,
+          sharedClub: row.shared_club_id && clubsById[row.shared_club_id] ? {
+            id: clubsById[row.shared_club_id].id,
+            name: clubsById[row.shared_club_id].name,
+            activity: clubsById[row.shared_club_id].activity ?? '',
+            location: clubsById[row.shared_club_id].location ?? '',
+            skillLevels: normalizeClubSkillLevels(clubsById[row.shared_club_id].skill_levels),
+            coverImageUrl: sharedClubMediaById[row.shared_club_id] ?? null,
+          } : undefined,
           time: new Date(row.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
           likes: postLikes.length,
           comments: commentsByPost.get(row.id) ?? [],
           liked: postLikes.some((like) => like.user_id === session.user.id),
           saved: false,
+          tags: tagsByPost.get(row.id) ?? [],
         }]
       })
       setPosts(feedMode === 'following' ? remotePosts : [...remotePosts, ...seedPosts])
@@ -794,7 +901,7 @@ export default function NativeApp() {
       setClubsLoading(true)
       setClubsError('')
       const { data: clubRows, error: clubsError } = await client.from('clubs')
-        .select('id,owner_id,name,description,activity,location').order('created_at', { ascending: false })
+        .select('id,owner_id,name,description,activity,location,skill_levels').order('created_at', { ascending: false })
       if (clubsError) throw clubsError
       if (active) setManagedClubs((clubRows ?? []) as ManagedClub[])
       const { data: memberships, error: membershipsError } = await client.from('club_memberships')
@@ -834,6 +941,54 @@ export default function NativeApp() {
   }, [selectedManagedClub?.id])
 
   useEffect(() => {
+    const userId = session?.user.id
+    if (!userId) {
+      setReserved([])
+      setSavedActivityIds([])
+      setMomentsCount(0)
+      return
+    }
+    let active = true
+    const readFallback = async (key: string) => {
+      try {
+        const value = await AsyncStorage.getItem(key)
+        const parsed = value ? JSON.parse(value) : []
+        return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+      } catch {
+        return []
+      }
+    }
+    const loadAccountActivityState = async () => {
+      const savedKey = `roava:${userId}:saved-activities`
+      const registeredKey = `roava:${userId}:activity-registrations`
+      let savedIds: string[] = []
+      let registeredIds: string[] = []
+      if (supabaseClient) {
+        const [{ data: savedRows, error: savedError }, { data: registrationRows, error: registrationError }, { count, error: momentsError }] = await Promise.all([
+          supabaseClient.from('saved_activities').select('activity_id').eq('user_id', userId),
+          supabaseClient.from('activity_registrations').select('activity_id').eq('user_id', userId),
+          supabaseClient.from('community_posts').select('id', { count: 'exact', head: true }).eq('author_id', userId),
+        ])
+        if (!savedError) savedIds = (savedRows ?? []).map((row) => row.activity_id)
+        else savedIds = await readFallback(savedKey)
+        if (!registrationError) registeredIds = (registrationRows ?? []).map((row) => row.activity_id)
+        else registeredIds = await readFallback(registeredKey)
+        if (active && !momentsError) setMomentsCount(count ?? 0)
+      } else {
+        savedIds = await readFallback(savedKey)
+        registeredIds = await readFallback(registeredKey)
+        if (active) setMomentsCount(0)
+      }
+      if (!active) return
+      setSavedActivityIds(Array.from(new Set(savedIds)))
+      setReserved(Array.from(new Set(registeredIds)))
+      setScheduleIds(Array.from(new Set(registeredIds)))
+    }
+    void loadAccountActivityState()
+    return () => { active = false }
+  }, [session?.user.id])
+
+  useEffect(() => {
     setActivityUserId(session?.user.id ?? null)
     setHealthUserId(session?.user.id ?? null)
     if (!session?.user.id) {
@@ -848,16 +1003,27 @@ export default function NativeApp() {
       setTab('home')
       return
     }
-    Promise.all([getActivityStore(), loadImportedWorkouts(), loadHealthProvider(), loadDailyFitnessMetrics()])
-      .then(([savedActivities, savedWorkouts, savedProvider, savedMetrics]) => {
-        setActivityStore(savedActivities)
-        setImportedWorkouts(savedWorkouts)
-        setHealthProvider(savedProvider)
-        setDailyFitnessMetrics(savedMetrics)
-      })
-      .catch((error: unknown) => {
-        Alert.alert('Unable to load activity data', error instanceof Error ? error.message : 'Please restart the app and try again.')
-      })
+    let active = true
+    const restoreAccountData = async () => {
+      const [savedActivities, savedWorkouts, savedProvider, savedMetrics] = await Promise.all([getActivityStore(), loadImportedWorkouts(), loadHealthProvider(), loadDailyFitnessMetrics()])
+      if (!active) return
+      setActivityStore(savedActivities)
+      setImportedWorkouts(savedWorkouts)
+      setHealthProvider(savedProvider)
+      setDailyFitnessMetrics(savedMetrics)
+      if (supabaseClient) {
+        try {
+          const syncedActivities = await syncActivityStore(supabaseClient, session.user.id, savedActivities)
+          if (active) setActivityStore(syncedActivities)
+        } catch (error) {
+          if (__DEV__) console.warn('[Activity] server history sync unavailable', error)
+        }
+      }
+    }
+    void restoreAccountData().catch((error: unknown) => {
+      if (active) Alert.alert('Unable to load activity data', error instanceof Error ? error.message : 'Please restart the app and try again.')
+    })
+    return () => { active = false }
   }, [session?.user.id])
 
   useEffect(() => {
@@ -873,11 +1039,11 @@ export default function NativeApp() {
     return () => clearInterval(timer)
   }, [activityStore.active?.id])
 
-  const accountUsername = (profileUsername || session?.user.user_metadata?.username || session?.user.email?.split('@')[0] || 'fithive')
+  const accountUsername = (profileUsername || session?.user.user_metadata?.username || session?.user.email?.split('@')[0] || 'roava')
     .replace(/^@/, '')
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '')
-    .slice(0, 20) || 'fithive'
+    .slice(0, 20) || 'roava'
   const accountHandle = `@${accountUsername}`
   const selectedClubCountry = clubCountries.find(({ code }) => code === countryCode) ?? clubCountries[0]
   const visibleClubs = useMemo(
@@ -905,7 +1071,6 @@ export default function NativeApp() {
       return next
     })
   }
-  const commentsPost = posts.find((post) => post.id === commentsPostId) ?? null
   const myPosts = posts.filter((post) => post.mine)
   const ownedManagedClubs = managedClubs.filter((club) => club.owner_id === session?.user.id)
   const activeDuration = activityStore.active
@@ -957,7 +1122,15 @@ export default function NativeApp() {
   const finishActivityAction = async (): Promise<RecordedActivity | null> => {
     try {
       const completed = await finishActivity()
-      setActivityStore(await getActivityStore())
+      let nextStore = await getActivityStore()
+      if (completed && supabaseClient && session?.user.id) {
+        try {
+          nextStore = await syncActivityStore(supabaseClient, session.user.id, nextStore)
+        } catch (error) {
+          if (__DEV__) console.warn('[Activity] completed activity sync unavailable', error)
+        }
+      }
+      setActivityStore(nextStore)
       if (completed) {
         await new Promise<void>((resolve) => {
           let resolved = false
@@ -982,6 +1155,9 @@ export default function NativeApp() {
     setDraftImageMimeType('image/png')
     setDraftLocation('')
     setDraftClubId(null)
+    setDraftSharedClub(null)
+    setDraftTags([])
+    setDraftMentionTags([])
     setComposing(true)
   }
 
@@ -1168,7 +1344,7 @@ export default function NativeApp() {
   const findNearbyActivities = () => {
     Alert.alert(
       'Find activities near you',
-      'FitHive will use your current location once to look for nearby parks, trails, sports areas, and fitness places. Your location is not saved.',
+      'Roava will use your current location once to look for nearby parks, trails, sports areas, and fitness places. Your location is not saved.',
       [
         { text: 'Not now', style: 'cancel' },
         { text: 'Continue', onPress: () => { void locateNearbyActivities() } },
@@ -1192,8 +1368,8 @@ export default function NativeApp() {
       Alert.alert(
         source === 'camera' ? 'Allow camera access?' : 'Allow photo access?',
         source === 'camera'
-          ? 'FitHive will ask your device for camera permission so you can take a profile photo.'
-          : 'FitHive will ask your device for photo access so you can choose a profile photo.',
+          ? 'Roava will ask your device for camera permission so you can take a profile photo.'
+          : 'Roava will ask your device for photo access so you can choose a profile photo.',
         [
           { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
           { text: 'Continue', onPress: () => resolve(true) },
@@ -1355,11 +1531,70 @@ export default function NativeApp() {
   const toggleSchedule = (trip: Trip) => {
     setScheduleIds((current) => current.includes(trip.id) ? current.filter((id) => id !== trip.id) : [...current, trip.id])
   }
+  const persistActivityIds = async (key: string, ids: string[]) => {
+    await AsyncStorage.setItem(key, JSON.stringify(Array.from(new Set(ids))))
+  }
+  const toggleSavedActivity = async (activityId: string) => {
+    if (!session?.user.id || activityMutationId) return
+    const isSaved = savedActivityIds.includes(activityId)
+    const nextIds = isSaved ? savedActivityIds.filter((id) => id !== activityId) : [...savedActivityIds, activityId]
+    setActivityMutationId(activityId)
+    try {
+      let useFallback = !supabaseClient
+      if (supabaseClient) {
+        const response = isSaved
+          ? await supabaseClient.from('saved_activities').delete().eq('user_id', session.user.id).eq('activity_id', activityId)
+          : await supabaseClient.from('saved_activities').upsert({ user_id: session.user.id, activity_id: activityId }, { onConflict: 'user_id,activity_id' })
+        if (response.error && !['PGRST205', '42P01'].includes(response.error.code ?? '')) throw response.error
+        useFallback = !!response.error
+      }
+      if (useFallback) await persistActivityIds(`roava:${session.user.id}:saved-activities`, nextIds)
+      setSavedActivityIds(nextIds)
+    } catch (error) {
+      Alert.alert('Could not update saved activity', error instanceof Error ? error.message : 'Please try again.')
+    } finally {
+      setActivityMutationId(null)
+    }
+  }
+  const toggleActivityRegistration = async (trip: Trip) => {
+    if (!session?.user.id || activityMutationId) return
+    const isRegistered = reserved.includes(trip.id)
+    if (!isRegistered && trip.capacity > 0 && trip.slots <= 0) {
+      Alert.alert('Activity full', 'This activity is no longer accepting registrations.')
+      return
+    }
+    const nextIds = isRegistered ? reserved.filter((id) => id !== trip.id) : [...reserved, trip.id]
+    setActivityMutationId(trip.id)
+    try {
+      let useFallback = !supabaseClient
+      if (supabaseClient) {
+        const response = isRegistered
+          ? await supabaseClient.from('activity_registrations').delete().eq('user_id', session.user.id).eq('activity_id', trip.id)
+          : await supabaseClient.from('activity_registrations').upsert({ user_id: session.user.id, activity_id: trip.id }, { onConflict: 'user_id,activity_id' })
+        if (response.error && !['PGRST205', '42P01'].includes(response.error.code ?? '')) throw response.error
+        useFallback = !!response.error
+      }
+      if (useFallback) await persistActivityIds(`roava:${session.user.id}:activity-registrations`, nextIds)
+      setReserved(nextIds)
+      setScheduleIds(nextIds)
+    } catch (error) {
+      Alert.alert('Could not update registration', error instanceof Error ? error.message : 'Please try again.')
+    } finally {
+      setActivityMutationId(null)
+    }
+  }
   const openTrip = (trip: Trip) => {
     setFlightNumber(trip.flights?.[0]?.flightNo ?? '')
     setFlightStatus(null)
     setFlightLookupError('')
     setSelectedTrip(trip)
+  }
+  const shareTrip = async (trip: Trip) => {
+    try {
+      await Share.share({ message: `${trip.title}\n${trip.category} · ${trip.dateLabel} · ${trip.time}\n${trip.location}\nHosted by ${trip.club}\n\n${trip.objective}` })
+    } catch (error) {
+      Alert.alert('Unable to share activity', error instanceof Error ? error.message : 'Please try again.')
+    }
   }
   const toggleLike = async (postId: string) => {
     const currentPost = posts.find((post) => post.id === postId)
@@ -1382,6 +1617,7 @@ export default function NativeApp() {
   const deletePost = async (postId: string) => {
     const client = supabaseClient
     if (!client || !session?.user.id) return
+    const wasCountedMoment = posts.some((post) => post.id === postId && post.mine)
     const remoteId = postId.startsWith('remote-') ? postId.slice('remote-'.length) : postId
     const { error } = await client.from('community_posts').delete().eq('id', remoteId).eq('author_id', session.user.id)
     if (error) {
@@ -1389,6 +1625,7 @@ export default function NativeApp() {
       return
     }
     setPosts((current) => current.filter((post) => post.id !== postId && post.id !== `remote-${remoteId}`))
+    if (wasCountedMoment) setMomentsCount((current) => Math.max(0, current - 1))
     setPostReloadKey((current) => current + 1)
     setFeedReloadKey((current) => current + 1)
   }
@@ -1420,7 +1657,7 @@ export default function NativeApp() {
     setNotificationsError('')
     try {
       const { data, error } = await supabaseClient.from('notifications')
-        .select('id,type,title,body,created_at,read_at,actor_id,post_id,club_id,membership_id')
+        .select('id,type,title,body,created_at,read_at,actor_id,post_id,comment_id,club_id,membership_id')
         .eq('recipient_id', session.user.id)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -1473,6 +1710,30 @@ export default function NativeApp() {
       setSelectedPublicProfileId(notification.actor_id)
       return
     }
+    if (notification.type === 'tag') {
+      setNotificationsVisible(false)
+      if (notification.club_id) {
+        setTargetClubPostId(notification.post_id ?? null)
+        setTimeout(() => setSelectedRemoteClubId(notification.club_id ?? null), 250)
+      } else {
+        setTab('feed')
+        setTargetFeedPostId(notification.post_id ? `remote-${notification.post_id}` : null)
+        setCommentsPostId(null)
+        setHighlightedCommentId(null)
+        setFeedReloadKey((current) => current + 1)
+      }
+      return
+    }
+    if (notification.post_id && ['comment', 'comment_mention', 'reply'].includes(notification.type)) {
+      setNotificationsVisible(false)
+      setTab('feed')
+      setTargetFeedPostId(`remote-${notification.post_id}`)
+      setCommentsPostId(`remote-${notification.post_id}`)
+      setHighlightedCommentId(notification.comment_id ?? null)
+      setCommentFocusRequest((current) => current + 1)
+      setFeedReloadKey((current) => current + 1)
+      return
+    }
     if (notification.type !== 'club_post' || !notification.club_id) return
     setNotificationsVisible(false)
     setReturnToNotifications(true)
@@ -1495,6 +1756,8 @@ export default function NativeApp() {
     setNotifications([])
     setNotificationsError('')
     setTargetClubPostId(null)
+    setTargetFeedPostId(null)
+    setHighlightedCommentId(null)
     setReturnToNotifications(false)
     const client = supabaseClient
     if (!client || !session?.user.id) return
@@ -1532,21 +1795,47 @@ export default function NativeApp() {
     })
     return () => subscription.remove()
   }, [notificationsVisible, session?.user.id])
+  const openComments = (postId: string) => {
+    setCommentsPostId((current) => current === postId ? null : postId)
+    setCommentReplyTo(null)
+    setCommentText('')
+    setCommentMentionTags([])
+    setCommentFocusRequest((current) => current + 1)
+  }
   const addComment = async () => {
     const text = commentText.trim()
-    if (!text || !commentsPostId) return
-    const localComment = { id: `comment-${Date.now()}`, author: accountUsername, handle: accountUsername, mine: true, text, time: 'Just now', likes: 0, liked: false }
-    setPosts((current) => current.map((post) => post.id === commentsPostId ? { ...post, comments: [...post.comments, localComment] } : post))
+    if (!text || !commentsPostId || commentSubmitting) return
+    const postId = commentsPostId
+    const parentId = commentReplyTo?.id ?? null
+    const localComment: Comment = { id: `comment-${Date.now()}`, author: accountUsername, handle: accountUsername, mine: true, text, time: 'Just now', likes: 0, liked: false, parentId, tags: commentMentionTags }
+    setCommentSubmitting(true)
+    setPosts((current) => current.map((post) => post.id === postId ? { ...post, comments: [...post.comments, localComment] } : post))
     setCommentText('')
-    if (supabaseClient && session?.user.id && commentsPostId.startsWith('remote-')) {
-      const { error } = await supabaseClient.from('post_comments').insert({ post_id: commentsPostId.replace(/^remote-/, ''), author_id: session.user.id, body: text })
-      if (error) {
-        setPosts((current) => current.map((post) => post.id === commentsPostId ? { ...post, comments: post.comments.filter((comment) => comment.id !== localComment.id) } : post))
-        Alert.alert('Could not add comment', error.message)
-      } else {
+    setCommentMentionTags([])
+    setCommentReplyTo(null)
+    if (supabaseClient && session?.user.id && postId.startsWith('remote-')) {
+      try {
+        const postUuid = postId.replace(/^remote-/, '')
+        const basePayload = { post_id: postUuid, author_id: session.user.id, body: text }
+        let inserted: any = null
+        let { data, error } = await supabaseClient.from('post_comments').insert({ ...basePayload, parent_comment_id: parentId && !parentId.startsWith('comment-') ? parentId : null }).select('id').single()
+        if (error && ['PGRST204', 'PGRST205', '42703'].includes(error.code ?? '')) {
+          ({ data, error } = await supabaseClient.from('post_comments').insert(basePayload).select('id').single())
+        }
+        if (error) throw error
+        inserted = data
+        if (commentMentionTags.length && inserted?.id) {
+          const { error: tagsError } = await supabaseClient.from('comment_tags').insert(commentMentionTags.map((tag) => ({ comment_id: inserted.id, tagged_profile_id: tag.profileId ?? null, tagged_club_id: tag.clubId ?? null })))
+          if (tagsError && !['PGRST205', '42P01'].includes(tagsError.code ?? '')) throw tagsError
+        }
+        if (inserted?.id) setPosts((current) => current.map((post) => post.id === postId ? { ...post, comments: post.comments.map((comment) => comment.id === localComment.id ? { ...comment, id: inserted.id } : comment) } : post))
         setFeedReloadKey((current) => current + 1)
+      } catch (error) {
+        setPosts((current) => current.map((post) => post.id === postId ? { ...post, comments: post.comments.filter((comment) => comment.id !== localComment.id) } : post))
+        Alert.alert('Could not add comment', error instanceof Error ? error.message : 'Please try again.')
       }
     }
+    setCommentSubmitting(false)
   }
   const closeComposer = () => {
     setComposing(false)
@@ -1555,6 +1844,9 @@ export default function NativeApp() {
     setDraftImage(undefined)
     setDraftImageMimeType('image/jpeg')
     setDraftClubId(null)
+    setDraftSharedClub(null)
+    setDraftTags([])
+    setDraftMentionTags([])
   }
   const submitPost = async () => {
     const body = draftText.trim()
@@ -1588,14 +1880,43 @@ export default function NativeApp() {
         imageUrl = supabaseClient.storage.from('post-media').getPublicUrl(uploadedImagePath).data.publicUrl
       }
 
-      const { data: insertedPost, error } = await supabaseClient.from('community_posts').insert({
+      const postPayload = {
         author_id: session.user.id,
         body,
         image_url: imageUrl,
         location: draftLocation.trim() || null,
         club_id: draftClubId,
-      }).select('id, created_at').single()
-      if (error) throw error
+        shared_club_id: draftSharedClub?.id ?? null,
+      }
+      let { data: insertedPost, error } = await supabaseClient.from('community_posts').insert(postPayload).select('id, created_at').single()
+      let sharedClubMigrationPending = false
+      if (error && (error.code === '42703' || error.message?.includes('shared_club_id')) && draftSharedClub) {
+        sharedClubMigrationPending = true
+        const legacyResult = await supabaseClient.from('community_posts').insert({
+          author_id: session.user.id,
+          body,
+          image_url: imageUrl,
+          location: draftLocation.trim() || null,
+          club_id: draftClubId,
+        }).select('id, created_at').single()
+        insertedPost = legacyResult.data
+        error = legacyResult.error
+      }
+      if (error || !insertedPost) throw error ?? new Error('The post could not be published.')
+      if (sharedClubMigrationPending) {
+        Alert.alert('Post published', 'The post was published, but the club preview will appear after the shared-club database migration is applied.')
+      }
+
+      const tagRows = [
+        ...draftTags.map((tag) => ({ post_id: insertedPost.id, tagged_profile_id: tag.profileId ?? null, tagged_club_id: tag.clubId ?? null, source: 'tag' })),
+        ...draftMentionTags.map((tag) => ({ post_id: insertedPost.id, tagged_profile_id: tag.profileId ?? null, tagged_club_id: tag.clubId ?? null, source: 'mention' })),
+      ]
+      if (tagRows.length) {
+        const { error: tagsError } = await supabaseClient.from('post_tags').insert(tagRows)
+        if (tagsError && !['PGRST205', '42P01'].includes(tagsError.code ?? '')) {
+          Alert.alert('Post published', 'Your post was published, but the tags could not be saved. You can try again on your next post.')
+        }
+      }
 
       const post: Post = {
         id: `remote-${insertedPost.id}`,
@@ -1608,13 +1929,16 @@ export default function NativeApp() {
         location: draftLocation.trim() || undefined,
         clubId: draftClubId ?? undefined,
         club: draftClubId ? ownedManagedClubs.find((club) => club.id === draftClubId)?.name : undefined,
+        sharedClub: draftSharedClub ?? undefined,
         time: 'Just now',
         likes: 0,
         comments: [],
         liked: false,
         saved: false,
+        tags: [...draftTags, ...draftMentionTags].filter((tag, index, all) => all.findIndex((candidate) => candidate.id === tag.id) === index),
       }
       setPosts((current) => [post, ...current.filter((existing) => existing.id !== post.id)])
+      setMomentsCount((current) => current + 1)
       closeComposer()
       setTab('feed')
       setFeedReloadKey((current) => current + 1)
@@ -1643,6 +1967,19 @@ export default function NativeApp() {
     } catch (error) {
       Alert.alert('Unable to open photos', error instanceof Error ? error.message : 'Please try again.')
     }
+  }
+
+  const openPhotoSourceSheet = () => {
+    setSharedSheet({
+      id: 'post-photo-source',
+      title: 'Add a photo',
+      content: <View style={{ gap: 8 }}>
+        <Text style={{ color: themeMuted, fontSize: 13, marginBottom: 4 }}>Choose how you want to add a photo to your post.</Text>
+        <Pressable onPress={() => { setSharedSheet(null); void pickImage('camera') }} style={styles.sheetOption}><AppIcon name="camera-outline" color={themeText} /><Text style={{ color: themeText, fontWeight: '800' }}>Take photo</Text></Pressable>
+        <Pressable onPress={() => { setSharedSheet(null); void pickImage('library') }} style={styles.sheetOption}><AppIcon name="image-outline" color={themeText} /><Text style={{ color: themeText, fontWeight: '800' }}>Choose from gallery</Text></Pressable>
+        <Pressable onPress={() => setSharedSheet(null)} style={styles.sheetCancel}><Text style={{ color: themeMuted, fontWeight: '800' }}>Cancel</Text></Pressable>
+      </View>,
+    })
   }
 
   const badgeForClub = (clubId: string, index = 0): ClubBadge => clubBadges[clubId] ?? { type: 'icon', value: badgeOptions[index % badgeOptions.length] }
@@ -1976,17 +2313,64 @@ export default function NativeApp() {
     />
   )
 
+  const openExploreCollection = (kind: 'events' | 'saved' | 'moments') => {
+    const activityCatalog = __DEV__ ? demoExploreEvents : trips
+    const activityById = new Map([...activityCatalog, ...scheduleTrips].map((trip) => [trip.id, trip]))
+    const activityIds = kind === 'events' ? reserved : savedActivityIds
+    const activities = activityIds.map((id) => activityById.get(id)).filter((trip): trip is Trip => !!trip)
+    const title = kind === 'events' ? 'Registered events' : kind === 'saved' ? 'Saved activities' : 'Your moments'
+    presentSharedBottomSheet({
+      id: `explore-${kind}-collection`,
+      title,
+      content: kind === 'moments'
+        ? <View style={{ gap: 8 }}>{myPosts.length ? myPosts.map((post) => <Pressable key={post.id} onPress={() => { dismissSharedBottomSheet(); setSelectedMoment(post) }} style={styles.collectionRow} accessibilityRole="button" accessibilityLabel={`Open moment by ${post.handle}`}><Text style={[styles.collectionTitle, { color: themeText }]} numberOfLines={2}>{post.text}</Text><Text style={[styles.collectionMeta, { color: themeMuted }]}>@{post.handle} · {post.time}</Text></Pressable>) : <Text style={[styles.emptyText, { color: themeMuted }]}>Your published moments will appear here.</Text>}</View>
+        : <ScrollView style={{ maxHeight: 500 }} contentContainerStyle={{ gap: 8 }}>{activities.length ? activities.map((trip) => <Pressable key={trip.id} onPress={() => { dismissSharedBottomSheet(); openTrip(trip) }} style={styles.collectionRow} accessibilityRole="button" accessibilityLabel={`Open ${trip.title}`}><Text style={[styles.collectionTitle, { color: themeText }]} numberOfLines={2}>{trip.title}</Text><Text style={[styles.collectionMeta, { color: themeMuted }]}>{trip.dateLabel} · {trip.location}</Text></Pressable>) : <Text style={[styles.emptyText, { color: themeMuted }]}>No {kind === 'events' ? 'registered events' : 'saved activities'} yet.</Text>}</ScrollView>,
+    })
+  }
+
+  const openExploreMoment = (moment: any) => {
+    setSelectedMoment(moment)
+  }
+
+  const exploreDemoMode = __DEV__
+  const exploreMoments = exploreDemoMode
+    ? demoExploreMoments
+    : posts.filter((post) => post.id.startsWith('remote-') && !post.mine && !!post.image).slice(0, 24)
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[Explore diagnostics]', {
+        realEvents: trips.length,
+        demoEvents: demoExploreEvents.length,
+        displayedEvents: exploreDemoMode ? demoExploreEvents.length : trips.length,
+        realMoments: posts.filter((post) => post.id.startsWith('remote-') && !post.mine && !!post.image).length,
+        demoMoments: demoExploreMoments.length,
+        displayedMoments: exploreMoments.length,
+        location: locationLabel,
+      })
+    }
+  }, [exploreDemoMode, exploreMoments.length, locationLabel, posts.length, trips.length])
+
   const renderExplore = () => (
     <ExploreScreen
       styles={styles}
       colors={colors}
-      trips={trips}
-      media={media}
-      reserved={reserved}
+      trips={exploreDemoMode ? demoExploreEvents : trips}
+      moments={exploreMoments}
+      locationLabel={locationLabel}
+      onLocationChange={setLocationLabel}
+      registered={reserved}
+      saved={savedActivityIds}
+      momentsCount={momentsCount}
       setTab={setTab}
       openTrip={openTrip}
       openClub={(clubId) => setSelectedRemoteClubId(clubId)}
       openProfile={(profileId) => setSelectedPublicProfileId(profileId)}
+      openMoment={openExploreMoment}
+      toggleSaved={(tripId) => { void toggleSavedActivity(tripId) }}
+      openCollection={openExploreCollection}
+      presentBottomSheet={presentSharedBottomSheet}
+      dismissBottomSheet={dismissSharedBottomSheet}
       ScreenHeader={ScreenHeader}
       SectionTitle={SectionTitle}
       TripCard={TripCard}
@@ -1999,14 +2383,6 @@ export default function NativeApp() {
     <ScrollView className="flex-1 bg-[#e9eee4] dark:bg-[#07110d]" contentContainerClassName="px-[18px] pb-7 pt-4">
       <ScreenHeader title={accountHandle} centerTitle action={
         <View style={styles.profileHeaderActions}>
-          <Pressable
-            style={styles.roundAction}
-            accessibilityRole="button"
-            accessibilityLabel="Open schedule"
-            onPress={() => setTab('schedule')}
-          >
-            <AppIcon name="calendar-outline" />
-          </Pressable>
           <Pressable
             style={styles.roundAction}
             accessibilityRole="button"
@@ -2030,7 +2406,7 @@ export default function NativeApp() {
             </View>
           </View>
         </View>
-        <Text className="mt-4 text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]">{profileBio || 'Add a bio to tell the FitHive community about you.'}</Text>
+        <Text className="mt-4 text-xs leading-[18px] text-slate-500 dark:text-[#9eafa2]">{profileBio || 'Add a bio to tell the Roava community about you.'}</Text>
         {!!joined.length && <View className="mt-4 border-t border-[#edf0e7] pt-4 dark:border-[#294032]">
           <Text className="mb-3 text-[10px] font-extrabold uppercase tracking-[1px] text-slate-500 dark:text-[#9eafa2]">Club badges</Text>
           <View className="flex-row flex-wrap gap-3">
@@ -2047,18 +2423,6 @@ export default function NativeApp() {
           </Pressable>
         </View>
       </View>
-      <SectionTitle title="Events" action="Schedule" onPress={() => setTab('schedule')} />
-      {scheduleTrips.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 pb-1">
-          {scheduleTrips.map((trip) => (
-            <Pressable key={trip.id} onPress={() => openTrip(trip)} className="w-[156px] rounded-[22px] border border-[#dfe7d9] bg-white p-3 shadow-md dark:border-[#2a3b30] dark:bg-[#132018]" accessibilityRole="button" accessibilityLabel={`Open ${trip.title} on ${trip.shortDate}`}>
-              <View className="mb-3 h-10 w-10 items-center justify-center rounded-[14px] bg-accent-200"><AppIcon name="calendar-outline" size={19} /></View>
-              <Text className="text-[12px] font-extrabold leading-[17px] text-ink dark:text-[#f3f7f0]" numberOfLines={2}>{trip.title}</Text>
-              <Text className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-[#9eafa2]">{trip.shortDay}, {trip.shortDate}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-5 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your scheduled events will appear here.</Text>}
       <SectionTitle title="Recently posted" />
       {!myPosts.length && <Text className="rounded-[20px] border border-dashed border-[#cbd8c5] bg-white/70 px-4 py-6 text-center text-xs text-slate-500 dark:border-[#4b6138] dark:bg-[#132018] dark:text-[#9eafa2]">Your recent posts will appear here.</Text>}
       {myPosts.map((post) => <PostCard key={post.id} post={post} photoUri={profileAvatarUrl} dark={isDark} following={false} onLike={() => toggleLike(post.id)} onSave={() => toggleSave(post.id)} onComments={() => setCommentsPostId(post.id)} onToggleFollow={() => {}} />)}
@@ -2075,6 +2439,8 @@ export default function NativeApp() {
       profileAvatarUrl={profileAvatarUrl}
       scheduleIds={scheduleIds}
       myPosts={myPosts}
+      momentsCount={momentsCount}
+      communityMedia={media}
       followersCount={followersCount}
       followingCount={followingCount}
       joined={joined}
@@ -2091,6 +2457,8 @@ export default function NativeApp() {
       toggleSave={toggleSave}
       setCommentsPostId={setCommentsPostId}
       onDeletePost={(postId) => { void deletePost(postId) }}
+      onOpenProfile={(profileId) => setSelectedPublicProfileId(profileId)}
+      onOpenClub={(clubId) => setSelectedRemoteClubId(clubId)}
       ScreenHeader={ScreenHeader}
       Avatar={Avatar}
       ClubBadgeView={ClubBadgeView}
@@ -2102,11 +2470,9 @@ export default function NativeApp() {
   )
 
   const renderBottomTabs = (onNavigate: (next: Tab) => void = (next) => setTab(next)) => (
-    <View style={[styles.tabBar, {
-      paddingBottom: Math.max(insets.bottom, 8),
-      backgroundColor: isDark ? theme.colors.darkSurface : '#FFFFFF',
-      borderTopColor: isDark ? theme.colors.darkBorder : theme.colors.line,
-    }]}>
+    <View pointerEvents="box-none" style={[styles.tabOverlay, { bottom: Math.max(insets.bottom, 10) }]}> 
+      <BlurView intensity={isDark ? 62 : 74} tint={isDark ? 'dark' : 'light'} style={[styles.tabBar, { borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(23,28,25,0.14)' }]}> 
+      <View style={[styles.tabBarTint, { backgroundColor: isDark ? 'rgba(23,28,25,0.54)' : 'rgba(255,255,255,0.58)' }]}> 
       {tabs.map((item) => {
         const active = tab === item.id
         return (
@@ -2120,6 +2486,8 @@ export default function NativeApp() {
           </Pressable>
         )
       })}
+      </View>
+      </BlurView>
     </View>
   )
 
@@ -2149,7 +2517,8 @@ export default function NativeApp() {
             onPostToFeed={openActivityPostComposer}
             ringMetrics={ringMetricsForDate(new Date())}
             darkMode={isDark}
-            bottomTabs={renderBottomTabs()}
+            presentBottomSheet={presentSharedBottomSheet}
+            dismissBottomSheet={dismissSharedBottomSheet}
           />
         )}
         {tab === 'feed' && (
@@ -2168,14 +2537,29 @@ export default function NativeApp() {
             unreadNotificationCount={notifications.filter((notification) => !notification.read_at).length}
             feedMode={feedMode}
             onFeedModeChange={setFeedMode}
-            onCompose={() => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftClubId(null); setComposing(true) }}
+            onCompose={() => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftClubId(null); setDraftSharedClub(null); setDraftTags([]); setDraftMentionTags([]); setComposing(true) }}
             onLike={toggleLike}
             onSave={toggleSave}
-            onComments={setCommentsPostId}
+            onComments={openComments}
             onDelete={(postId) => { void deletePost(postId) }}
             followedHandles={followedHandles}
             onToggleFollow={(handle) => { void toggleFollow(handle) }}
+            onOpenProfile={(profileId) => setSelectedPublicProfileId(profileId)}
+            onOpenClub={(clubId) => setSelectedRemoteClubId(clubId)}
             darkMode={isDark}
+            client={supabaseClient}
+            commentsPostId={commentsPostId}
+            targetPostId={targetFeedPostId}
+            highlightedCommentId={highlightedCommentId}
+            commentText={commentText}
+            commentTags={commentMentionTags}
+            commentFocusRequest={commentFocusRequest}
+            replyTo={commentReplyTo}
+            onCommentTextChange={setCommentText}
+            onCommentMentionSelected={(tag) => setCommentMentionTags((current) => current.some((item) => item.id === tag.id) ? current : [...current, tag])}
+            onSubmitComment={() => { void addComment() }}
+            onReply={(comment) => { setCommentReplyTo(comment); setCommentFocusRequest((current) => current + 1) }}
+            onCancelReply={() => setCommentReplyTo(null)}
           />
         )}
         {tab === 'explore' && renderExplore()}
@@ -2187,6 +2571,22 @@ export default function NativeApp() {
         )}
       </View>
       {renderBottomTabs()}
+      {sharedSheet && (
+        <BottomSheet
+          visible
+          onClose={() => {
+            const current = sharedSheet
+            setSharedSheet(null)
+            current.onDismiss?.()
+          }}
+          backgroundColor={themeSurface}
+          borderColor={themeBorder}
+          accessibilityLabel={sharedSheet.title ?? 'Bottom sheet'}
+        >
+          {!!sharedSheet.title && <Text style={[styles.sheetTitle, { color: themeText, marginBottom: 12 }]}>{sharedSheet.title}</Text>}
+          {sharedSheet.content}
+        </BottomSheet>
+      )}
 
       <Modal
         visible={!!selectedSampleClub}
@@ -2278,7 +2678,7 @@ export default function NativeApp() {
             {!notificationsLoading && !notificationsError && !notifications.length && <Text style={[styles.emptyText, { color: isDark ? '#A1A1AA' : colors.muted }]}>You’re all caught up.</Text>}
             {notifications.map((notification) => (
               <View key={notification.id} style={[styles.notificationRow, { backgroundColor: isDark ? '#17191D' : colors.white, borderColor: isDark ? '#303238' : '#E7EAE4' }, !notification.read_at && { borderColor: '#FF5A1F', backgroundColor: isDark ? '#24262B' : '#FFF4EE' }]}>
-                <View style={[styles.notificationIcon, { backgroundColor: isDark ? '#FF5A1F22' : colors.lime, overflow: 'hidden' }]}>{notification.type === 'follow' && notification.actorProfile?.avatar_url ? <Image source={{ uri: notification.actorProfile.avatar_url }} style={{ width: '100%', height: '100%' }} /> : <AppIcon name={notification.type === 'club_join_request' ? 'people-outline' : notification.type === 'follow' ? 'person-add-outline' : notification.type === 'comment' ? 'chatbubble-outline' : notification.type === 'like' ? 'heart' : 'sparkles-outline'} color={isDark ? '#FF8A3D' : colors.ink} />}</View>
+                <View style={[styles.notificationIcon, { backgroundColor: isDark ? '#FF5A1F22' : colors.lime, overflow: 'hidden' }]}>{notification.type === 'follow' && notification.actorProfile?.avatar_url ? <Image source={{ uri: notification.actorProfile.avatar_url }} style={{ width: '100%', height: '100%' }} /> : <AppIcon name={notification.type === 'club_join_request' ? 'people-outline' : notification.type === 'follow' ? 'person-add-outline' : ['comment', 'comment_mention', 'reply'].includes(notification.type) ? 'chatbubble-outline' : notification.type === 'like' ? 'heart' : notification.type === 'tag' ? 'pricetag-outline' : 'sparkles-outline'} color={isDark ? '#FF8A3D' : colors.ink} />}</View>
                 <View style={styles.notificationCopy}>
                   <Pressable onPress={() => { void handleNotificationPress(notification) }} accessibilityRole="button" accessibilityLabel={`Open ${notification.title}`}>
                     <Text style={[styles.notificationTitle, { color: isDark ? '#F5F5F5' : colors.ink }]}>{notification.type === 'follow' && notification.actorProfile?.display_name ? notification.actorProfile.display_name : notification.title}</Text>
@@ -2296,21 +2696,42 @@ export default function NativeApp() {
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={!!selectedTrip} animationType="slide" onRequestClose={() => setSelectedTrip(null)}>
-        {selectedTrip && <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
+      {selectedMoment && <BottomSheet visible onClose={() => setSelectedMoment(null)} backgroundColor={themeBackground} borderColor={themeBorder} maxHeight="92%" accessibilityLabel={`Community moment by ${selectedMoment.handle}`}>
+        <BottomSheetScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+          {selectedMoment.mediaType === 'video' && selectedMoment.mediaUrl ? <MomentVideo uri={selectedMoment.mediaUrl} /> : selectedMoment.image && <Image source={{ uri: selectedMoment.image }} style={{ width: '100%', aspectRatio: 1, backgroundColor: '#17191D' }} resizeMode="cover" />}
+          <View style={{ padding: 18 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ width: 38, height: 38, borderRadius: 19, overflow: 'hidden', backgroundColor: '#FF5A1F22', alignItems: 'center', justifyContent: 'center' }}>{selectedMoment.avatarUrl ? <Image source={{ uri: selectedMoment.avatarUrl }} style={{ width: '100%', height: '100%' }} /> : <AppIcon name="person" color="#FF7900" />}</View><View style={{ flex: 1 }}><Text style={{ color: themeText, fontWeight: '900' }}>@{selectedMoment.handle}</Text><Text style={{ color: themeMuted, fontSize: 11, marginTop: 2 }}>{selectedMoment.time}</Text></View><Pressable onPress={() => { void Share.share({ message: `${selectedMoment.text}\n@${selectedMoment.handle}` }) }} accessibilityRole="button" accessibilityLabel="Share community moment"><AppIcon name="share-outline" color={themeText} size={21} /></Pressable></View>
+            {selectedMoment.demo && <Text style={{ color: '#A1A1AA', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginTop: 17 }}>DEMO CONTENT</Text>}<Text style={{ color: themeText, fontSize: 15, lineHeight: 22, marginTop: selectedMoment.demo ? 7 : 17 }}>{selectedMoment.text}</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}><Pressable onPress={() => { void toggleLike(selectedMoment.id) }} style={styles.secondaryButton} accessibilityRole="button" accessibilityLabel="Like community moment"><AppIcon name={selectedMoment.liked ? 'heart' : 'heart-outline'} color={selectedMoment.liked ? '#FF7900' : themeText} /><Text style={{ color: themeText, fontWeight: '800' }}>{selectedMoment.likes}</Text></Pressable><Pressable onPress={() => { setSelectedMoment(null); setCommentsPostId(selectedMoment.id) }} style={styles.secondaryButton} accessibilityRole="button" accessibilityLabel="Open comments"><AppIcon name="chatbubble-outline" color={themeText} /><Text style={{ color: themeText, fontWeight: '800' }}>Comments</Text></Pressable></View>
+            {selectedMoment.authorId && <Pressable onPress={() => { setSelectedMoment(null); setSelectedPublicProfileId(selectedMoment.authorId ?? '') }} style={{ marginTop: 18 }} accessibilityRole="button" accessibilityLabel={`View ${selectedMoment.handle}'s profile`}><Text style={{ color: '#FF7900', fontWeight: '900' }}>View profile</Text></Pressable>}
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>}
+
+      {selectedTrip && <BottomSheet visible onClose={() => setSelectedTrip(null)} backgroundColor={themeBackground} borderColor={themeBorder} maxHeight="92%" accessibilityLabel={`${selectedTrip.title} activity details`}>
+          <BottomSheetScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
             <View style={styles.modalImageWrap}>
-              <Image source={{ uri: selectedTrip.image }} style={styles.modalHeroImage} />
-              <Pressable style={styles.closeButton} onPress={() => setSelectedTrip(null)} accessibilityLabel="Close event">
-                <AppIcon name="close" color={colors.white} />
-              </Pressable>
+              {selectedTrip.image ? <Image source={{ uri: selectedTrip.image }} style={styles.modalHeroImage} /> : <View style={[styles.modalHeroImage, { backgroundColor: '#24262B', alignItems: 'center', justifyContent: 'center' }]}><AppIcon name="images-outline" size={38} color="#A1A1AA" /></View>}
+              <View style={{ position: 'absolute', top: 14, left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Pressable style={styles.closeButton} onPress={() => setSelectedTrip(null)} accessibilityLabel="Close activity details"><AppIcon name="close" color={colors.white} /></Pressable>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable style={styles.closeButton} onPress={() => { void shareTrip(selectedTrip) }} accessibilityLabel="Share activity"><AppIcon name="share-outline" color={colors.white} /></Pressable>
+                  <Pressable disabled={!!activityMutationId} style={styles.closeButton} onPress={() => { void toggleSavedActivity(selectedTrip.id) }} accessibilityLabel={savedActivityIds.includes(selectedTrip.id) ? 'Remove activity from saved' : 'Save activity'}><AppIcon name={savedActivityIds.includes(selectedTrip.id) ? 'bookmark' : 'bookmark-outline'} color={savedActivityIds.includes(selectedTrip.id) ? '#FF7900' : colors.white} /></Pressable>
+                </View>
+              </View>
             </View>
             <View style={styles.modalPadding}>
-              <Text style={styles.eyebrow}>{selectedTrip.dateLabel.toUpperCase()}</Text>
-              <Text style={styles.modalTitle}>{selectedTrip.title}</Text>
-              <Text style={styles.modalSub}>{selectedTrip.club}</Text>
+              <Text style={[styles.eyebrow, { color: isDark ? '#FF8A3D' : '#C2410C' }]}>{selectedTrip.category.toUpperCase()}</Text>
+              <Text style={[styles.modalTitle, { color: themeText }]}>{selectedTrip.title}</Text>
+              <Text style={[styles.modalSub, { color: themeMuted }]}>Hosted by {selectedTrip.club}</Text>
               <View style={styles.detailInfo}><AppIcon name="time-outline" color={colors.muted} /><Text style={styles.bodyText}>{selectedTrip.time}</Text></View>
               <View style={styles.detailInfo}><AppIcon name="location-outline" color={colors.muted} /><Text style={styles.bodyText}>{selectedTrip.location} · {selectedTrip.locationNote}</Text></View>
+              <View style={styles.detailInfo}><AppIcon name="calendar-outline" color={colors.muted} /><Text style={styles.bodyText}>{selectedTrip.dateLabel}</Text></View>
+              <View style={styles.activityDetailStats}>
+                <View><Text style={styles.activityDetailStatValue}>{selectedTrip.capacity > 0 ? Math.max(0, selectedTrip.capacity - selectedTrip.slots) : '—'}</Text><Text style={styles.activityDetailStatLabel}>JOINED</Text></View>
+                <View><Text style={styles.activityDetailStatValue}>{selectedTrip.capacity > 0 ? selectedTrip.slots : '—'}</Text><Text style={styles.activityDetailStatLabel}>SPOTS LEFT</Text></View>
+                <View><Text style={styles.activityDetailStatValue}>{selectedTrip.miles ? `${selectedTrip.miles} mi` : 'Local'}</Text><Text style={styles.activityDetailStatLabel}>DISTANCE</Text></View>
+              </View>
               <View style={styles.detailNote}>
                 <Text style={styles.travelTitle}>Getting there</Text>
                 <Text style={styles.travelText}>
@@ -2359,22 +2780,16 @@ export default function NativeApp() {
               <Text style={styles.sectionTitle}>About this event</Text>
               <Text style={styles.bodyText}>{selectedTrip.objective}</Text>
               {selectedTrip.airport && <Text style={styles.detailNote}>Travel tip: nearest airport is {selectedTrip.airport.name} ({selectedTrip.airport.code}).</Text>}
-              <Pressable style={[styles.primaryButton, reserved.includes(selectedTrip.id) && styles.secondaryButton]} onPress={() => {
-                setReserved((current) => current.includes(selectedTrip.id) ? current.filter((id) => id !== selectedTrip!.id) : [...current, selectedTrip!.id])
-                if (!scheduleIds.includes(selectedTrip.id)) setScheduleIds((current) => [...current, selectedTrip!.id])
-              }}>
-                <AppIcon name={reserved.includes(selectedTrip.id) ? 'checkmark' : 'calendar-outline'} />
-                <Text style={styles.primaryButtonText}>{reserved.includes(selectedTrip.id) ? 'Reserved · Added to schedule' : 'Reserve my spot'}</Text>
+              <Pressable disabled={!!activityMutationId || (selectedTrip.capacity > 0 && selectedTrip.slots <= 0 && !reserved.includes(selectedTrip.id))} style={[styles.primaryButton, reserved.includes(selectedTrip.id) && styles.secondaryButton, (activityMutationId || (selectedTrip.capacity > 0 && selectedTrip.slots <= 0 && !reserved.includes(selectedTrip.id))) && styles.disabledAction]} onPress={() => { void toggleActivityRegistration(selectedTrip) }} accessibilityRole="button" accessibilityLabel={selectedTrip.capacity > 0 && selectedTrip.slots <= 0 && !reserved.includes(selectedTrip.id) ? 'Activity is full' : reserved.includes(selectedTrip.id) ? 'Cancel reservation' : 'Join event'}>
+                <AppIcon name={selectedTrip.capacity > 0 && selectedTrip.slots <= 0 ? 'close-circle-outline' : reserved.includes(selectedTrip.id) ? 'checkmark' : 'calendar-outline'} color={reserved.includes(selectedTrip.id) ? themeText : undefined} />
+                <Text style={[styles.primaryButtonText, reserved.includes(selectedTrip.id) && { color: themeText }]}>{selectedTrip.capacity > 0 && selectedTrip.slots <= 0 ? 'Event full' : reserved.includes(selectedTrip.id) ? 'Reserved · Added to schedule' : 'Join event'}</Text>
               </Pressable>
-              {scheduleIds.includes(selectedTrip.id) && <Pressable style={styles.removeButton} onPress={() => {
-                setScheduleIds((current) => current.filter((id) => id !== selectedTrip.id))
-                setReserved((current) => current.filter((id) => id !== selectedTrip.id))
-                setSelectedTrip(null)
+              {scheduleIds.includes(selectedTrip.id) && <Pressable disabled={!!activityMutationId} style={[styles.removeButton, activityMutationId && styles.disabledAction]} onPress={() => {
+                void toggleActivityRegistration(selectedTrip).then(() => setSelectedTrip(null))
               }}><Text style={styles.removeButtonText}>Remove from schedule</Text></Pressable>}
             </View>
-          </ScrollView>
-        </SafeAreaView>}
-      </Modal>
+          </BottomSheetScrollView>
+        </BottomSheet>}
 
       <Modal visible={!!selectedManagedClub} animationType="slide" onRequestClose={() => setSelectedManagedClub(null)}>
         {selectedManagedClub && <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
@@ -2425,7 +2840,7 @@ export default function NativeApp() {
           setTimeout(() => setNotificationsVisible(true), 250)
         }
       }}>
-        {selectedRemoteClubId && supabaseClient && <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={['top', 'bottom']}>
+        {selectedRemoteClubId && supabaseClient && <SafeAreaView style={[styles.modalSafe, { backgroundColor: themeBackground }]} edges={[]}>
           <ClubDetailScreen
             client={supabaseClient}
             clubId={selectedRemoteClubId}
@@ -2443,8 +2858,10 @@ export default function NativeApp() {
               }
             }}
             onOpenProfile={(profileId) => setSelectedPublicProfileId(profileId)}
+            onOpenClub={(clubId) => setSelectedRemoteClubId(clubId)}
             onDeletePost={(postId) => { void deletePost(postId) }}
-            onCompose={(clubId) => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftClubId(clubId); setComposing(true) }}
+            onCompose={(clubId) => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftClubId(clubId); setDraftSharedClub(null); setDraftTags([]); setDraftMentionTags([]); setComposing(true) }}
+            onShareClub={(club) => { setDraftText(''); setDraftImage(undefined); setDraftImageMimeType('image/jpeg'); setDraftLocation(''); setDraftClubId(null); setDraftSharedClub(club); setDraftTags([]); setDraftMentionTags([]); setComposing(true) }}
           />
         </SafeAreaView>}
       </Modal>
@@ -2472,6 +2889,8 @@ export default function NativeApp() {
               }
             }}
             onDeletePost={(postId) => { void deletePost(postId) }}
+            onOpenProfile={(profileId) => setSelectedPublicProfileId(profileId)}
+            onOpenClub={(clubId) => setSelectedRemoteClubId(clubId)}
           />
         </SafeAreaView>}
       </Modal>
@@ -2707,7 +3126,7 @@ export default function NativeApp() {
               </View>
               <AppIcon name="chevron-forward" color={colors.muted} />
             </Pressable>
-            <Text style={styles.settingsPrivacy}>FitHive uses your location only for activity tracking and fitness data only when you connect a health app. You can manage those permissions in your device settings.</Text>
+            <Text style={styles.settingsPrivacy}>Roava uses your location only for activity tracking and fitness data only when you connect a health app. You can manage those permissions in your device settings.</Text>
             <Pressable style={styles.settingsSignOut} onPress={() => { void signOut() }}>
               <AppIcon name="log-out-outline" color="#a32020" />
               <Text style={styles.signOutLabel}>Sign out</Text>
@@ -2715,33 +3134,6 @@ export default function NativeApp() {
           </ScrollView>
           {renderBottomTabs((next) => { setSettingsVisible(false); setTab(next) })}
         </SafeAreaView>
-      </Modal>
-
-      <Modal visible={!!commentsPost} animationType="slide" onRequestClose={() => setCommentsPostId(null)}>
-        {commentsPost && <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
-          <View style={styles.sheetHeader}>
-            <Pressable onPress={() => setCommentsPostId(null)} accessibilityLabel="Close comments"><AppIcon name="close" /></Pressable>
-            <Text style={styles.sheetTitle}>Comments</Text>
-            <View style={{ width: 24 }} />
-          </View>
-          <ScrollView style={styles.commentsList} contentContainerStyle={styles.commentsContent}>
-            <Text style={styles.commentPostText}>{commentsPost.text}</Text>
-            {commentsPost.comments.map((comment) => (
-              <View key={comment.id} style={styles.commentRow}>
-                <Avatar name={comment.author} size={34} photoUri={comment.mine ? profileAvatarUrl : null} />
-                <View style={styles.commentBubble}>
-                  <Text style={styles.commentAuthor}>@{comment.handle}</Text>
-                  <Text style={styles.bodyText}>{comment.text}</Text>
-                  <Text style={styles.commentTime}>{comment.time}</Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-          <View style={styles.commentInputRow}>
-            <TextInput value={commentText} onChangeText={setCommentText} placeholder="Add a comment..." placeholderTextColor={colors.muted} style={styles.commentInput} returnKeyType="send" onSubmitEditing={addComment} />
-            <Pressable onPress={addComment} style={styles.sendButton} accessibilityLabel="Send comment"><AppIcon name="arrow-up" color={colors.white} /></Pressable>
-          </View>
-        </SafeAreaView>}
       </Modal>
 
       <Modal visible={composing} animationType="slide" onRequestClose={closeComposer}>
@@ -2760,9 +3152,12 @@ export default function NativeApp() {
               <Pressable onPress={() => setDraftClubId(null)} style={[styles.postDestination, !draftClubId && styles.postDestinationActive]} accessibilityRole="button" accessibilityLabel="Post as yourself"><Text style={[styles.postDestinationText, !draftClubId && styles.postDestinationTextActive]}>My profile</Text></Pressable>
               {ownedManagedClubs.map((club) => <Pressable key={club.id} onPress={() => setDraftClubId(club.id)} style={[styles.postDestination, draftClubId === club.id && styles.postDestinationActive]} accessibilityRole="button" accessibilityLabel={`Post as ${club.name}`}><Text style={[styles.postDestinationText, draftClubId === club.id && styles.postDestinationTextActive]} numberOfLines={1}>{club.name}</Text></Pressable>)}
             </View>}
-            <TextInput
+            <MentionInput
+              client={supabaseClient!}
               value={draftText}
               onChangeText={(value) => setDraftText(value.slice(0, 280))}
+              onMentionSelected={(tag) => setDraftMentionTags((current) => current.some((item) => item.id === tag.id) ? current : [...current, tag])}
+              dark={isDark}
               placeholder="What's happening outside?"
               placeholderTextColor={colors.muted}
               multiline
@@ -2771,6 +3166,12 @@ export default function NativeApp() {
               textAlignVertical="top"
               autoFocus
             />
+            {!!draftSharedClub && <View style={styles.draftSharedClub}><View style={styles.draftSharedClubHeader}><Text style={styles.draftSharedClubTitle}>Club preview</Text><Pressable onPress={() => setDraftSharedClub(null)} accessibilityLabel="Remove club preview"><AppIcon name="close" color={colors.muted} size={16} /></Pressable></View><View style={styles.draftSharedClubBody}>{draftSharedClub.coverImageUrl ? <Image source={{ uri: draftSharedClub.coverImageUrl }} style={styles.draftSharedClubImage} resizeMode="cover" /> : <View style={styles.draftSharedClubFallback}><Text style={{ color: '#FF7900', fontSize: 20, fontWeight: '900' }}>R</Text></View>}<View style={{ flex: 1 }}><Text style={styles.draftSharedClubName} numberOfLines={1}>{draftSharedClub.name}</Text><Text style={styles.draftSharedClubMeta} numberOfLines={1}>{[draftSharedClub.activity, draftSharedClub.location].filter(Boolean).join(' · ') || 'Community club'}</Text><Text style={styles.draftSharedClubMeta} numberOfLines={1}>{draftSharedClub.skillLevels.length ? draftSharedClub.skillLevels.map((level) => level.charAt(0).toUpperCase() + level.slice(1)).join(' · ') : 'Skill levels not specified'}</Text></View></View></View>}
+            {!!draftTags.length && <View style={styles.draftTagsRow}>{draftTags.map((tag) => <View key={tag.id} style={styles.draftTagChip}><Text style={styles.draftTagText} numberOfLines={1}>{tag.kind === 'profile' ? `@${tag.handle || tag.label}` : tag.label}</Text><Pressable onPress={() => setDraftTags((current) => current.filter((item) => item.id !== tag.id))} accessibilityLabel={`Remove ${tag.label}`}><AppIcon name="close" color="#C2410C" size={13} /></Pressable></View>)}</View>}
+            <View style={styles.composerActionRow}>
+              <Pressable onPress={() => setTaggingVisible(true)} style={styles.composerAction} accessibilityRole="button" accessibilityLabel="Tag people or clubs"><AppIcon name="pricetag-outline" color="#FF7900" size={17} /><Text style={styles.composerActionText}>Tag people or clubs</Text></Pressable>
+              {!!draftMentionTags.length && <Text style={styles.mentionCount}>{draftMentionTags.length} mention{draftMentionTags.length === 1 ? '' : 's'}</Text>}
+            </View>
             {!!draftImage && <View style={styles.composeImageWrap}>
               <Image source={{ uri: draftImage }} style={styles.composeImage} />
               <Pressable style={styles.removeImageButton} onPress={() => setDraftImage(undefined)} accessibilityLabel="Remove image"><AppIcon name="close" color={colors.white} /></Pressable>
@@ -2779,11 +3180,7 @@ export default function NativeApp() {
               <TextInput value={draftLocation} onChangeText={setDraftLocation} placeholder="Add location" placeholderTextColor={colors.muted} style={styles.locationInput} />
               <Text style={styles.characterCount}>{280 - draftText.length}</Text>
             </View>
-            <Pressable onPress={() => Alert.alert('Add a photo', 'Choose how you want to add a photo to your post.', [
-              { text: 'Take photo', onPress: () => { void pickImage('camera') } },
-              { text: 'Choose from gallery', onPress: () => { void pickImage('library') } },
-              { text: 'Cancel', style: 'cancel' },
-            ])} style={styles.addPhotoButton}>
+            <Pressable onPress={openPhotoSourceSheet} style={styles.addPhotoButton}>
               <AppIcon name="image-outline" color={colors.blue} />
               <Text style={styles.addPhotoText}>{draftImage ? 'Change photo' : 'Add photo'}</Text>
             </Pressable>
@@ -2798,6 +3195,16 @@ export default function NativeApp() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+      {supabaseClient && <>
+        <PostTaggingSheet
+          client={supabaseClient}
+          visible={taggingVisible}
+          dark={isDark}
+          selected={draftTags}
+          onChange={setDraftTags}
+          onClose={() => setTaggingVisible(false)}
+        />
+      </>}
     </SafeAreaView>
     {!launchFinished && <LaunchExperience ready onReady={handleLaunchReady} onFinished={() => { if (__DEV__) console.log('[Launch] navigation to Feed'); setLaunchFinished(true) }} />}
     </View>
@@ -2810,7 +3217,7 @@ const styles = StyleSheet.create({
   appBody: { flex: 1 },
   authLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   authLoadingText: { color: colors.muted, fontSize: 13 },
-  screenContent: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 28 },
+  screenContent: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 120 },
   clubsScreen: { backgroundColor: '#f4f7f1' },
   scheduleScreen: { backgroundColor: '#f4f7f1' },
   screenHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 },
@@ -3002,7 +3409,9 @@ const styles = StyleSheet.create({
   clubLoadErrorText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 5 },
   clubRetryButton: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, backgroundColor: colors.white },
   clubRetryText: { color: '#FF7900', fontSize: 11, fontWeight: '800' },
-  tabBar: { flexDirection: 'row', justifyContent: 'space-around', marginHorizontal: 12, marginBottom: 8, paddingTop: 9, borderRadius: 30, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, shadowColor: '#000000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14, elevation: 8, overflow: 'hidden' },
+  tabOverlay: { position: 'absolute', left: 12, right: 12, zIndex: 20, elevation: 20 },
+  tabBar: { height: 66, borderRadius: 34, borderWidth: 1, shadowColor: '#000000', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.24, shadowRadius: 18, elevation: 12, overflow: 'hidden' },
+  tabBarTint: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 6, paddingVertical: 5 },
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 54, position: 'relative' },
   tabButtonActive: { borderRadius: 24, backgroundColor: '#FF5A1F18' },
   tabButtonPressed: { opacity: 0.72, transform: [{ scale: 0.96 }] },
@@ -3032,6 +3441,9 @@ const styles = StyleSheet.create({
   modalSub: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5, marginBottom: 14 },
   bodyText: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 5 },
   detailInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 13 },
+  activityDetailStats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: '#24262B', borderWidth: 1, borderColor: '#303238' },
+  activityDetailStatValue: { color: '#F5F5F5', fontSize: 16, fontWeight: '900' },
+  activityDetailStatLabel: { color: '#A1A1AA', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginTop: 3 },
   detailNote: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 14, padding: 12, backgroundColor: '#e9ebdf', borderRadius: 12 },
   travelTitle: { color: colors.ink, fontSize: 12, fontWeight: '800', marginBottom: 3 },
   travelText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 3 },
@@ -3051,6 +3463,11 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center', paddingVertical: 30, paddingHorizontal: 15 },
   sheetHeader: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: colors.line },
   sheetTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
+  sheetOption: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderRadius: 16, backgroundColor: '#F5F6F2' },
+  sheetCancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  collectionRow: { minHeight: 62, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 15, borderWidth: 1, borderColor: '#303238', backgroundColor: '#24262B' },
+  collectionTitle: { fontSize: 13, lineHeight: 18, fontWeight: '800' },
+  collectionMeta: { fontSize: 10, lineHeight: 15, marginTop: 3 },
   commentsList: { flex: 1 },
   commentsContent: { padding: 16, paddingBottom: 28 },
   notificationRow: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, marginBottom: 8, borderRadius: 18, backgroundColor: colors.white },
@@ -3067,6 +3484,21 @@ const styles = StyleSheet.create({
   postDestinationRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   postDestination: { maxWidth: 170, borderRadius: 18, borderWidth: 1, borderColor: '#CBD8C5', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 8 },
   postDestinationActive: { backgroundColor: '#FF7900', borderColor: '#FF7900' },
+  draftTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingHorizontal: 18, marginBottom: 8 },
+  draftTagChip: { maxWidth: 170, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 14, backgroundColor: '#FFF0E8' },
+  draftTagText: { color: '#C2410C', fontSize: 10, fontWeight: '800', flexShrink: 1 },
+  draftSharedClub: { marginHorizontal: 18, marginBottom: 10, padding: 11, borderRadius: 16, borderWidth: 1, borderColor: '#FFB98F', backgroundColor: '#FFF8F4' },
+  draftSharedClubHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  draftSharedClubTitle: { color: '#C2410C', fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
+  draftSharedClubBody: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  draftSharedClubImage: { width: 58, height: 58, borderRadius: 12 },
+  draftSharedClubFallback: { width: 58, height: 58, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE2CC' },
+  draftSharedClubName: { color: colors.ink, fontSize: 13, fontWeight: '900' },
+  draftSharedClubMeta: { color: colors.muted, fontSize: 10, marginTop: 4 },
+  composerActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, marginBottom: 10 },
+  composerAction: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11, borderRadius: 19, borderWidth: 1, borderColor: '#FF7900', backgroundColor: '#FFF8F4' },
+  composerActionText: { color: '#C2410C', fontSize: 11, fontWeight: '800' },
+  mentionCount: { color: colors.muted, fontSize: 10, fontWeight: '700' },
   postDestinationText: { color: colors.muted, fontSize: 10, fontWeight: '800' },
   postDestinationTextActive: { color: '#FFFFFF' },
   commentPostText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginBottom: 18 },

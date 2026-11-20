@@ -1,8 +1,9 @@
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import type { ReactNode } from 'react'
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useState, type ReactNode } from 'react'
 import { useColorScheme } from 'nativewind'
 import { theme } from '../src/theme'
 import type { SampleClub } from './sampleClubs'
+import { BottomSheet } from './BottomSheet'
 
 export type ClubsScreenProps = {
   styles: Record<string, any>
@@ -67,21 +68,22 @@ export function ClubsScreen({
   const foreground = dark ? theme.colors.darkText : theme.colors.ink
   const muted = dark ? theme.colors.darkMuted : theme.colors.muted
   const border = dark ? theme.colors.darkBorder : theme.colors.line
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false)
   const searchTerm = search.trim().toLowerCase()
   const filteredSampleClubs = sampleClubs.filter((club) => !searchTerm || `${club.name} ${club.sport} ${club.description}`.toLowerCase().includes(searchTerm))
   const clubResultsCount = filteredSampleClubs.length + visibleClubs.length
 
   return (
-    <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={[styles.screenContent, { backgroundColor: background }]} contentContainerClassName="px-[18px] pb-8 pt-5" keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: background }} className="flex-1" contentContainerStyle={[styles.screenContent, { backgroundColor: background, paddingTop: 20, paddingBottom: 140 }]} keyboardShouldPersistTaps="handled">
       <View style={screenStyles.brandHeader}>
-        <View style={screenStyles.brandRow}><Text style={[screenStyles.wordmark, { color: foreground }]}>FitHive</Text><Text style={screenStyles.brandDot}>.</Text></View>
+        <View style={screenStyles.brandRow}><Text style={[screenStyles.wordmark, { color: foreground }]}>Roava</Text><Text style={screenStyles.brandDot}>.</Text></View>
       </View>
       <View style={[screenStyles.searchBox, { backgroundColor: surface, borderColor: border }]}>
         <AppIcon name="search-outline" color={muted} />
         <TextInput value={search} onChangeText={setSearch} placeholder="Search clubs" placeholderTextColor={muted} style={[styles.searchInput, { color: foreground }]} returnKeyType="search" />
       </View>
       <View style={styles.zipRow}>
-        <Pressable style={[styles.zipInputBox, styles.countryCodeBox, { backgroundColor: surface, borderColor: border }]} onPress={() => Alert.alert('Choose a country', 'Club search is available in these countries.', clubCountries.map(({ code, label }) => ({ text: label, onPress: () => setCountryCode(code) })))} accessibilityRole="button" accessibilityLabel={`Country: ${selectedClubCountry.label}. Choose country`}>
+        <Pressable style={[styles.zipInputBox, styles.countryCodeBox, { backgroundColor: surface, borderColor: border }]} onPress={() => setCountryPickerVisible(true)} accessibilityRole="button" accessibilityLabel={`Country: ${selectedClubCountry.label}. Choose country`}>
           <Text style={[styles.countryCodeInput, { color: foreground }]} numberOfLines={1}>{selectedClubCountry.label}</Text>
           <AppIcon name="chevron-down" color={muted} size={14} />
         </Pressable>
@@ -93,6 +95,13 @@ export function ClubsScreen({
           <Text style={styles.searchButtonText}>{searchingPostalCode ? 'Looking up…' : 'Update'}</Text>
         </Pressable>
       </View>
+      <BottomSheet visible={countryPickerVisible} onClose={() => setCountryPickerVisible(false)} backgroundColor={surface} borderColor={border} accessibilityLabel="Choose a country">
+        <View style={screenStyles.countrySheetContent}>
+          <Text style={[screenStyles.countrySheetTitle, { color: foreground }]}>Choose a country</Text>
+          <Text style={[screenStyles.countrySheetSubtitle, { color: muted }]}>Club search is available in these countries.</Text>
+          {clubCountries.map(({ code, label }) => <Pressable key={code} onPress={() => { setCountryPickerVisible(false); setCountryCode(code) }} style={[screenStyles.countryOption, { borderColor: border, backgroundColor: selectedClubCountry.label === label ? (dark ? '#3A241B' : '#FFF0E6') : elevated }]} accessibilityRole="radio" accessibilityState={{ selected: selectedClubCountry.label === label }}><Text style={[screenStyles.countryOptionText, { color: foreground }]}>{label}</Text>{selectedClubCountry.label === label && <Text style={{ color: theme.colors.accent, fontWeight: '900' }}>✓</Text>}</Pressable>)}
+        </View>
+      </BottomSheet>
       <Pressable style={[screenStyles.nearMeButton, { backgroundColor: surface, borderColor: border }]} onPress={findNearbyActivities} disabled={locatingClubs}>
         <AppIcon name="navigate-outline" color="#FF7900" />
         <Text style={[styles.nearMeText, { color: foreground }]}>{locatingClubs ? 'Finding your location…' : 'Find activities near me'}</Text>
@@ -162,4 +171,9 @@ const screenStyles = StyleSheet.create({
   locationBanner: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderRadius: 18, marginBottom: 16 },
   categoryChip: { minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderRadius: 21, marginRight: 8 },
   categoryText: { fontSize: 11, fontWeight: '700' },
+  countrySheetContent: { paddingHorizontal: 18, paddingBottom: 18, gap: 9 },
+  countrySheetTitle: { fontSize: 18, fontWeight: '900', marginTop: 4 },
+  countrySheetSubtitle: { fontSize: 12, marginBottom: 5 },
+  countryOption: { minHeight: 50, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  countryOptionText: { fontSize: 13, fontWeight: '800' },
 })

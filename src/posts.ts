@@ -1,4 +1,5 @@
 import { people, ridgeImage } from './data'
+import type { SharedClubPreview } from './sharedClub'
 
 export interface Comment {
   id: string
@@ -9,6 +10,18 @@ export interface Comment {
   time: string
   likes: number
   liked: boolean
+  parentId?: string | null
+  tags?: PostTag[]
+}
+
+export type PostTag = {
+  id: string
+  kind: 'profile' | 'club'
+  profileId?: string
+  clubId?: string
+  label: string
+  handle?: string | null
+  avatarUrl?: string | null
 }
 
 export interface Post {
@@ -20,6 +33,11 @@ export interface Post {
   mine: boolean
   text: string
   image?: string
+  mediaType?: 'photo' | 'video'
+  mediaUrl?: string
+  thumbnail?: string
+  durationSeconds?: number
+  demo?: boolean
   location?: string
   club?: string
   clubId?: string
@@ -31,6 +49,8 @@ export interface Post {
   comments: Comment[]
   liked: boolean
   saved: boolean
+  tags?: PostTag[]
+  sharedClub?: SharedClubPreview
 }
 
 export const ME = { handle: 'alexoutside' }

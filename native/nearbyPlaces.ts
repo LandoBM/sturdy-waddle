@@ -34,7 +34,7 @@ export async function lookupPostalLocation(country: string, postalCode: string):
 
   const fallbackResponse = await fetch(
     `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(normalizedPostalCode)}&countrycodes=${normalizedCountry.toLowerCase()}&format=jsonv2&addressdetails=1&limit=1`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'FitHive mobile app' } },
+    { headers: { Accept: 'application/json', 'User-Agent': 'Roava mobile app' } },
   )
   if (!fallbackResponse.ok) {
     throw primaryError instanceof Error ? primaryError : new Error('Postal code lookup is temporarily unavailable.')

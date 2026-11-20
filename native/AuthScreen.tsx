@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LEGAL_DOCUMENT_VERSION } from './supabase'
 
 const AUTH_HERO_IMAGE = require('../assets/auth-hero.jpeg')
-const AUTH_LOGO = require('../assets/fithive-wordmark-transparent.png')
 
 type AccountKind = 'member' | 'club_owner'
 
@@ -242,12 +241,7 @@ export function AuthScreen({ client }: { client: SupabaseClient | null }) {
 function BrandBanner({ width }: { width: number }) {
   return (
     <View style={styles.brandBanner}>
-      <Image
-        source={AUTH_LOGO}
-        resizeMode="contain"
-        style={{ width: Math.min(width - 80, 280), height: 125 }}
-        accessibilityLabel="FitHive"
-      />
+      <Text style={styles.brandWordmark} accessibilityLabel="Roava">Roava<Text style={styles.brandAccent}>.</Text></Text>
     </View>
   )
 }
@@ -324,6 +318,8 @@ const styles = StyleSheet.create({
   fallbackPage: { flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
   fallbackSurface: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 26, paddingHorizontal: 20, paddingVertical: 22, backgroundColor: 'rgba(8,9,11,0.78)' },
   brandBanner: { alignItems: 'center', paddingTop: 0, paddingBottom: 0 },
+  brandWordmark: { color: colors.white, fontFamily: 'Inter_700Bold', fontSize: 52, letterSpacing: -2 },
+  brandAccent: { color: '#FF7900' },
   formSurface: { backgroundColor: 'rgba(8,9,11,0.80)', borderColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderRadius: 28, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 17 },
   heading: { color: colors.white, fontFamily: 'Inter_700Bold', fontSize: 30, lineHeight: 36, letterSpacing: -0.8 },
   supportingText: { color: '#D1D5DB', fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 20, marginTop: 5, marginBottom: 19 },
